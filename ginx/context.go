@@ -2,6 +2,9 @@ package ginx
 
 import (
 	"github.com/gin-gonic/gin"
+	"reflect"
+	"strconv"
+	"unsafe"
 )
 
 func NewContext(c *gin.Context) Context {
@@ -23,6 +26,61 @@ type context struct {
 }
 
 func (c *context) Parse(container any) (err error) {
-	//TODO
+	t := reflect.TypeOf(container)
+	v := reflect.ValueOf(container)
+
+	err = c.parseHeader(v, t)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (c *context) parseCookie(v reflect.Value, t reflect.Type) {
+	for i := 0; i < t.NumField(); i++ {
+		tField := t.Field(i)
+		vField := v.Field(i)
+		if !vField.CanSet() {
+			vField = reflect.NewAt(vField.Type(), unsafe.Pointer(vField.UnsafeAddr())).Elem()
+		}
+
+		fieldName := tField.Tag.Get("cookie")
+		for _, item := range c.Request.Cookies() {
+			if item.Name == fieldName {
+				switch vField.Interface().(type) {
+				case string:
+					vField.Set(reflect.ValueOf(item.Value))
+				case int, int32: //TODO: 基础类型转换
+					value, err := strconv.Atoi(item.Value)
+					if err != nil {
+						panic(err)
+					}
+					vField.Set(reflect.ValueOf(value))
+				}
+				break
+			}
+		}
+	}
+
+	return
+}
+
+func (c *context) parseHeader(v reflect.Value, t reflect.Type) (err error) {
+	for i := 0; i < t.NumField(); i++ {
+		tField := t.Field(i)
+		vField := v.Field(i)
+		if !vField.CanSet() {
+			vField = reflect.NewAt(vField.Type(), unsafe.Pointer(vField.UnsafeAddr())).Elem()
+		}
+
+		fieldName := tField.Tag.Get("header")
+		if vField.Kind() == reflect.Slice && vField.Type().Elem().Kind() == reflect.String {
+			vField.Set(reflect.ValueOf(c.Request.Header.Values(fieldName)))
+		} else if vField.Kind() == reflect.String {
+			vField.Set(reflect.ValueOf(c.Request.Header.Get(fieldName)))
+		}
+	}
+
 	return
 }
