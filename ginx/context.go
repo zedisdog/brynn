@@ -1,10 +1,12 @@
 package ginx
 
 import (
-	"github.com/gin-gonic/gin"
 	"reflect"
 	"strconv"
+	"strings"
 	"unsafe"
+
+	"github.com/gin-gonic/gin"
 )
 
 func NewContext(c *gin.Context) Context {
@@ -75,6 +77,13 @@ func (c *context) parseHeader(v reflect.Value, t reflect.Type) (err error) {
 		}
 
 		fieldName := tField.Tag.Get("header")
+		switch vField.Kind() {
+		case reflect.String:
+			vField.Set(reflect.ValueOf(strings.Join(c.Request.Header.Values(fieldName), ",")))
+		case reflect.Int:
+
+		}
+
 		if vField.Kind() == reflect.Slice && vField.Type().Elem().Kind() == reflect.String {
 			vField.Set(reflect.ValueOf(c.Request.Header.Values(fieldName)))
 		} else if vField.Kind() == reflect.String {
