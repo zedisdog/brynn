@@ -1,7 +1,6 @@
 package mapx
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -31,8 +30,8 @@ func Merge[K comparable, V any](m1 map[K]V, m2 map[K]V) (result map[K]V) {
 
 func Set(value reflect.Value, v any) (err error) {
 	vv := reflect.ValueOf(v)
-	fmt.Printf("%+v\n", value.Type().Name())
-	if value.Kind() == vv.Kind() {
+	// fmt.Printf("%+v\n", value.Type().Name())
+	if value.Kind() == reflect.Invalid || value.Kind() == vv.Kind() {
 		value.Set(vv)
 	}
 

@@ -6,13 +6,14 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/gogf/gf/v2/util/gconv"
 	"io"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/gogf/gf/v2/util/gconv"
 )
 
 type IClient interface {
@@ -24,19 +25,20 @@ type IClient interface {
 	AddQuery(key string, value string) IClient
 	SetCookies(cookies []*http.Cookie) IClient
 	AddCookie(cookie *http.Cookie) IClient
-	Get(url string) getResult
-	Delete(url string) getResult
-	PutJson(url string, data any) getResult
-	PutXml(url string, data any) getResult
-	PostJson(url string, data any) getResult
-	PostXml(url string, data any) getResult
-	PostForm(u string, data any) getResult
+	Get(url string) iResponse
+	Delete(url string) iResponse
+	PutJson(url string, data any) iResponse
+	PutXml(url string, data any) iResponse
+	PostJson(url string, data any) iResponse
+	PostXml(url string, data any) iResponse
+	PostForm(u string, data any) iResponse
 	Request(req *http.Request) (resp *http.Response, err error)
 }
 
-type getResult interface {
+type iResponse interface {
 	Response() (res *http.Response, err error)
 	ScanJsonBody(data any) (err error)
+	ScanXmlBody(data any) (err error)
 }
 
 type OptFunc func(*client)
@@ -117,7 +119,7 @@ func (c client) AddCookie(cookie *http.Cookie) IClient {
 	return &c
 }
 
-func (c client) Get(url string) getResult {
+func (c client) Get(url string) iResponse {
 	c.get(url)
 	return &c
 }
@@ -130,10 +132,9 @@ func (c *client) get(url string) {
 	}
 
 	c.res, c.Err = c.Request(req)
-	return
 }
 
-func (c client) Delete(url string) getResult {
+func (c client) Delete(url string) iResponse {
 	c.delete(url)
 	return &c
 }
@@ -146,10 +147,9 @@ func (c *client) delete(url string) {
 	}
 
 	c.res, c.Err = c.Request(req)
-	return
 }
 
-func (c client) PutJson(url string, data any) getResult {
+func (c client) PutJson(url string, data any) iResponse {
 	var (
 		content []byte
 	)
@@ -162,7 +162,7 @@ func (c client) PutJson(url string, data any) getResult {
 	return &c
 }
 
-func (c client) PutXml(url string, data any) getResult {
+func (c client) PutXml(url string, data any) iResponse {
 	var content []byte
 	content, c.Err = xml.Marshal(data)
 	if c.Err != nil {
@@ -181,10 +181,9 @@ func (c *client) put(url string, body io.Reader) {
 	}
 
 	c.res, c.Err = c.Request(req)
-	return
 }
 
-func (c client) PostJson(url string, data any) getResult {
+func (c client) PostJson(url string, data any) iResponse {
 	var content []byte
 	content, c.Err = json.Marshal(data)
 	if c.Err != nil {
@@ -196,7 +195,7 @@ func (c client) PostJson(url string, data any) getResult {
 	return &c
 }
 
-func (c client) PostXml(url string, data any) getResult {
+func (c client) PostXml(url string, data any) iResponse {
 	var content []byte
 	content, c.Err = xml.Marshal(data)
 	if c.Err != nil {
@@ -207,7 +206,7 @@ func (c client) PostXml(url string, data any) getResult {
 	return &c
 }
 
-func (c client) PostForm(u string, data any) getResult {
+func (c client) PostForm(u string, data any) iResponse {
 	c.header.Add("Content-Type", "application/x-www-form-urlencoded")
 	vData := reflect.ValueOf(data)
 	if vData.Kind() == reflect.Pointer {
@@ -263,7 +262,6 @@ func (c *client) post(url string, body io.Reader) {
 	}
 
 	c.res, c.Err = c.Request(req)
-	return
 }
 
 func (c client) buildUrl(u string) string {
@@ -283,7 +281,9 @@ func (c client) buildUrl(u string) string {
 
 	for k, values := range c.query {
 		for _, v := range values {
-			parsedUrl.Query().Add(k, v)
+			q := parsedUrl.Query()
+			q.Add(k, v)
+			parsedUrl.RawQuery = q.Encode()
 		}
 	}
 
@@ -371,5 +371,18 @@ func (c client) ScanJsonBody(data any) (err error) {
 		return
 	}
 	err = json.Unmarshal(content, data)
+	return
+}
+
+func (c client) ScanXmlBody(data any) (err error) {
+	if c.Err != nil {
+		return c.Err
+	}
+	defer c.res.Body.Close()
+	content, err := io.ReadAll(c.res.Body)
+	if err != nil {
+		return
+	}
+	err = xml.Unmarshal(content, data)
 	return
 }

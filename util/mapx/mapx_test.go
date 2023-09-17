@@ -1,6 +1,7 @@
 package mapx
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -19,5 +20,5 @@ func TestSetStruct(t *testing.T) {
 	v := reflect.ValueOf(test).Elem()
 	Set(v, test2)
 
-	// fmt.Printf("%+v\n", test)
+	fmt.Printf("%+v\n", test)
 }
