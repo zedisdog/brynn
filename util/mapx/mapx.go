@@ -1,5 +1,10 @@
 package mapx
 
+import (
+	"fmt"
+	"reflect"
+)
+
 func Merge[K comparable, V any](m1 map[K]V, m2 map[K]V) (result map[K]V) {
 	result = make(map[K]V, len(m1)+len(m2))
 	if m1 == nil && m2 == nil {
@@ -15,6 +20,20 @@ func Merge[K comparable, V any](m1 map[K]V, m2 map[K]V) (result map[K]V) {
 	}
 	for k, v := range m2 {
 		result[k] = v
+	}
+
+	return
+}
+
+// func Unmarshal(m map[string][]any, v any) (err error) {
+// 	value := reflect.ValueOf(v)
+// }
+
+func Set(value reflect.Value, v any) (err error) {
+	vv := reflect.ValueOf(v)
+	fmt.Printf("%+v\n", value.Type().Name())
+	if value.Kind() == vv.Kind() {
+		value.Set(vv)
 	}
 
 	return

@@ -42,6 +42,9 @@ func (c *Context) Parse(v any) (err error) {
 	}
 
 	if contentType == ContentTypeJson {
+		var result map[string][]any
+		result, err = c.readJson()
+		values = mapx.Merge(values, result)
 
 	}
 	return
@@ -108,8 +111,14 @@ func (c *Context) readJson() (result map[string][]any, err error) {
 	result = make(map[string][]any, 1)
 	value := reflect.ValueOf(v)
 	if value.Kind() == reflect.Slice {
-		result["body"] = gconv.SliceAny(v)
+		result["body"] = v.([]any)
 	}
 
-	if value.Kind() 
+	if value.Kind() == reflect.Map {
+		for k, v := range v.(map[string]any) {
+			result[k] = []any{v}
+		}
+	}
+
+	return
 }
