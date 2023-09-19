@@ -36,7 +36,7 @@ var (
 	ErrNotMatch = errors.New("type not match")
 )
 
-func Unmarshal(src map[string]any, dest any) (err error) {
+func Unmarshal(src map[string]any, dest any, conv bool) (err error) {
 	destValue := reflect.ValueOf(dest)
 	if destValue.Kind() != reflect.Pointer || !destValue.Elem().IsValid() {
 		return errors.New("only support pointer")
@@ -44,16 +44,16 @@ func Unmarshal(src map[string]any, dest any) (err error) {
 	destValue = destValue.Elem()
 	destType := reflect.TypeOf(dest).Elem()
 
-	return unmarshal(src, destValue, destType)
+	return unmarshal(src, destValue, destType, conv)
 }
 
-func unmarshal(src map[string]any, dValue reflect.Value, dType reflect.Type) (err error) {
+func unmarshal(src map[string]any, dValue reflect.Value, dType reflect.Type, conv bool) (err error) {
 	for i := 0; i < dValue.NumField(); i++ {
 		fieldValue := dValue.Field(i)
 		fieldType := dType.Field(i)
 
 		if fieldType.Anonymous {
-			unmarshal(src, fieldValue, fieldValue.Type())
+			unmarshal(src, fieldValue, fieldValue.Type(), conv)
 			continue
 		}
 
@@ -71,6 +71,8 @@ func unmarshal(src map[string]any, dValue reflect.Value, dType reflect.Type) (er
 			srcValue := reflect.ValueOf(v)
 			if fieldValue.Kind() == srcValue.Kind() {
 				fieldValue.Set(srcValue)
+			} else if conv {
+
 			} else {
 				return ErrNotMatch
 			}

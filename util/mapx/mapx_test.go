@@ -16,7 +16,7 @@ func TestUnmarshal1(t *testing.T) {
 	}
 	var a test
 
-	Unmarshal(m, &a)
+	Unmarshal(m, &a, false)
 	require.Equal(t, 1, a.A)
 }
 
@@ -32,7 +32,7 @@ func TestUnmarshal2(t *testing.T) {
 	}
 	var a test
 
-	Unmarshal(m, &a)
+	Unmarshal(m, &a, false)
 	require.Equal(t, s, a.A)
 }
 
@@ -49,7 +49,7 @@ func TestUnmarshal3(t *testing.T) {
 	}
 	var a test
 
-	err := Unmarshal(m, &a)
+	err := Unmarshal(m, &a, false)
 	require.Nil(t, err)
 	require.Equal(t, 1, a.A)
 }
@@ -62,7 +62,7 @@ func TestUnmarshal4(t *testing.T) {
 	m := map[string]any{}
 	var a test
 
-	err := Unmarshal(m, &a)
+	err := Unmarshal(m, &a, false)
 	require.NotNil(t, err)
 }
 
@@ -74,7 +74,22 @@ func TestUnmarshal5(t *testing.T) {
 	m := map[string]any{}
 	var a test
 
-	err := Unmarshal(m, &a)
+	err := Unmarshal(m, &a, false)
 	require.Nil(t, err)
 	require.Equal(t, 0, a.A)
+}
+
+func TestUnmarshal6(t *testing.T) {
+	type test struct {
+		A int `input:"a"`
+	}
+
+	m := map[string]any{
+		"a": "1",
+	}
+	var a test
+
+	err := Unmarshal(m, &a, true)
+	require.Nil(t, err)
+	require.Equal(t, 1, a.A)
 }
