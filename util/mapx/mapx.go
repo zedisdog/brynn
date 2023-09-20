@@ -72,7 +72,6 @@ func unmarshal(src map[string]any, dValue reflect.Value, dType reflect.Type, con
 			if fieldValue.Kind() == srcValue.Kind() {
 				fieldValue.Set(srcValue)
 			} else if conv {
-
 			} else {
 				return ErrNotMatch
 			}
