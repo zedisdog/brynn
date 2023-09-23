@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/zedisdog/brynn/util/reflectx"
 	"github.com/zedisdog/brynn/util/slicex"
 )
 
@@ -35,6 +36,59 @@ const (
 var (
 	ErrNotMatch = errors.New("type not match")
 )
+
+func AssignRequest(src map[string]any, dest any) (err error) {
+	destValue := reflect.ValueOf(dest)
+	if destValue.Kind() != reflect.Pointer || !destValue.Elem().IsValid() {
+		return errors.New("only support pointer")
+	}
+	destValue = destValue.Elem()
+	destType := reflect.TypeOf(dest).Elem()
+
+	for i := 0; i < destValue.NumField(); i++ {
+		fieldValue := destValue.Field(i)
+		fieldType := destType.Field(i)
+
+		key, opts := getKey(fieldType)
+
+		v, ok := src[key]
+		vValue := reflect.ValueOf(v)
+		if !ok || vValue.IsZero() {
+			if optional(opts) {
+				continue
+			} else {
+				return errors.New("field <" + key + "> is required")
+			}
+		}
+
+		if fieldValue.Kind() == vValue.Kind() {
+			fieldValue.Set(vValue)
+			continue
+		}
+
+		switch fieldValue.Kind() {
+		case reflect.Struct:
+
+		}
+	}
+}
+
+func getKey(field reflect.StructField) (key string, opt []string) {
+	tag := reflectx.GetTag(field, keyName, "json", "xml")
+	if tag == "" {
+		key = field.Name
+	} else {
+		arr := strings.Split(tag, ",")
+		key = arr[0]
+		opt = arr[1:]
+	}
+
+	return
+}
+
+func optional(opt []string) bool {
+	return slicex.Containers("optional", opt)
+}
 
 func Unmarshal(src map[string]any, dest any, conv bool) (err error) {
 	destValue := reflect.ValueOf(dest)
@@ -72,6 +126,7 @@ func unmarshal(src map[string]any, dValue reflect.Value, dType reflect.Type, con
 			if fieldValue.Kind() == srcValue.Kind() {
 				fieldValue.Set(srcValue)
 			} else if conv {
+
 			} else {
 				return ErrNotMatch
 			}

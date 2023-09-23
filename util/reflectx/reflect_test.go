@@ -37,3 +37,19 @@ func TestNewToValue(t *testing.T) {
 
 	fmt.Printf("%+v\n", test)
 }
+
+func TestGetTag(t *testing.T) {
+	type a struct {
+		A int `json:"testa" xml:"testb"`
+	}
+
+	test := a{
+		A: 1,
+	}
+
+	content := GetTag(reflect.TypeOf(test).Field(0), "json")
+	require.Equal(t, "testa", content)
+
+	content = GetTag(reflect.TypeOf(test).Field(0), "xml", "json")
+	require.Equal(t, "testb", content)
+}
