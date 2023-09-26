@@ -2,6 +2,8 @@ package conv
 
 import (
 	"fmt"
+	"github.com/zedisdog/brynn/util/generates"
+	"github.com/zedisdog/brynn/util/reflectx"
 	"reflect"
 	"strconv"
 	"strings"
@@ -38,22 +40,13 @@ func ConvertTo[T any](a any) (result T, err error) {
 	case string:
 		result, err = StrTo[T](x)
 	default:
-		value := reflect.ValueOf(a)
-		switch value.Kind() {
-		case reflect.Int:
-			println("ok")
-		}
+		result, err = reflectx.ConvertTo[T](reflect.ValueOf(a))
 	}
 
 	return
 }
 
-type intBase interface {
-	~int | ~int8 | ~int16 | ~int64 | ~int32 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
-}
-
-func IntTo[T any, S intBase](v S) (result T) {
+func IntTo[T any, S generates.AllIntBase](v S) (result T) {
 	switch any(result).(type) {
 	case bool:
 		result = any(0 != v).(T)
@@ -88,11 +81,7 @@ func IntTo[T any, S intBase](v S) (result T) {
 	return
 }
 
-type floatBase interface {
-	~float32 | ~float64
-}
-
-func FloatTo[T any, S floatBase](v S) (result T) {
+func FloatTo[T any, S generates.FloatBase](v S) (result T) {
 	switch any(result).(type) {
 	case bool:
 		result = any(0 != v).(T)

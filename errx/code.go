@@ -1,6 +1,9 @@
 package errx
 
-import "github.com/zedisdog/brynn/i18n"
+import (
+	"fmt"
+	"github.com/zedisdog/brynn/i18n"
+)
 
 type Code int32
 
@@ -23,7 +26,7 @@ var message = map[Code]string{
 
 func RegisterCode(code int32, msg string) {
 	if _, ok := message[Code(code)]; ok {
-		panic(Newf(InternalError, "code [%d] is already exists.", code))
+		panic(New(InternalError, fmt.Sprintf("code [%d] is already exists.", code)))
 	}
 	message[Code(code)] = msg
 }
