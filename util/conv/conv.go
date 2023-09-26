@@ -2,6 +2,7 @@ package conv
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -36,6 +37,12 @@ func ConvertTo[T any](a any) (result T, err error) {
 		result = FloatTo[T](x)
 	case string:
 		result, err = StrTo[T](x)
+	default:
+		value := reflect.ValueOf(a)
+		switch value.Kind() {
+		case reflect.Int:
+			println("ok")
+		}
 	}
 
 	return

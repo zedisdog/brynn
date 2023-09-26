@@ -8,20 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// func TestXxx(t *testing.T) {
-// 	type a struct {
-// 		A int
-// 	}
-
-// 	var test *a
-
-// 	test2 := a{
-// 		A: 1,
-// 	}
-
-// 	err := CopyValue(reflect.ValueOf(test2), reflect.TypeOf(test2), reflect.ValueOf(test), reflect.TypeOf(test))
-// 	require.Nil(t, err)
-// }
+func TestXxx(t *testing.T) {
+	s1 := []int{1, 2}
+	s2 := make([]int, len(s1))
+	copy(s2, s1)
+	fmt.Printf("%+v\n", s2)
+}
 
 func TestNewToValue(t *testing.T) {
 	type a struct {

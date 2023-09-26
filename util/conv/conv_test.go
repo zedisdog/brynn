@@ -28,4 +28,10 @@ func TestConvert(t *testing.T) {
 	b, err := ConvertTo[string](a)
 	require.Nil(t, err)
 	require.Equal(t, "1", b)
+
+	type Int int
+	var c Int = 1
+	d, err := ConvertTo[string](c)
+	require.Nil(t, err)
+	require.Equal(t, "1", d)
 }
