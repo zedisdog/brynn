@@ -18,6 +18,7 @@ func (c Code) Message() (msg string) {
 
 const (
 	InternalError Code = 500
+	ValidateError Code = 422
 )
 
 var message = map[Code]string{

@@ -2,12 +2,16 @@ package httpx
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/zedisdog/brynn/errx"
+	"github.com/zedisdog/brynn/i18n"
+	"github.com/zedisdog/brynn/util/reflectx"
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/gogf/gf/v2/util/gconv"
-	"github.com/zedisdog/brynn/util/mapx"
 )
 
 var MaxFormSize int64 = 0 * 1024 * 1024
@@ -17,53 +21,180 @@ type Context struct {
 	w http.ResponseWriter
 }
 
-func (c *Context) Parse(v any) (err error) {
-	var values map[string][]any
+//func (c *Context) Parse(v any) (err error) {
+//	var values map[string][]any
+//
+//	values = mapx.Merge(values, c.readHeader())
+//	values = mapx.Merge(values, c.readCookies())
+//
+//	contentType := ContentType(c.r.Header.Get("Content-Type"))
+//	switch contentType {
+//	case ContentTypeMultiPartForm:
+//		var form map[string][]any
+//		form, err = c.readMultiForm()
+//		if err != nil {
+//			return
+//		}
+//		values = mapx.Merge(values, form)
+//	default:
+//		var form map[string][]any
+//		form, err = c.readForm()
+//		if err != nil {
+//			return
+//		}
+//		values = mapx.Merge(values, form)
+//	}
+//
+//	if contentType == ContentTypeJson {
+//		var result map[string][]any
+//		result, err = c.readJson()
+//		values = mapx.Merge(values, result)
+//
+//	}
+//	return
+//}
 
-	values = mapx.Merge(values, c.readHeader())
-	values = mapx.Merge(values, c.readCookies())
+func (c *Context) parseHeader(destValue reflect.Value) (err error) {
+	destType := destValue.Type()
+	for i := 0; i < destValue.NumField(); i++ {
+		fieldStruct := destType.Field(i)
+		fieldValue := destValue.Field(i)
+		if fieldStruct.Anonymous {
+			err = c.parseHeader(fieldValue)
+			if err != nil {
+				return
+			}
+			continue
+		}
 
-	contentType := ContentType(c.r.Header.Get("Content-Type"))
-	switch contentType {
-	case ContentTypeMultiPartForm:
-		var form map[string][]any
-		form, err = c.readMultiForm()
-		if err != nil {
-			return
+		content := reflectx.GetTag(fieldStruct, "header")
+		if content != "" {
+			arr := strings.Split(content, ",")
+			values := c.r.Header.Values(arr[0])
+			switch len(values) {
+			case 0:
+				if !isOptional(arr[1:]) {
+					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+				}
+			case 1:
+				var v reflect.Value
+				v, err = reflectx.ConvertStringTo(reflect.ValueOf(values[0]), fieldValue.Kind())
+				if err != nil {
+					return
+				}
+				fieldValue.Set(v)
+			default:
+				if fieldValue.Kind() == reflect.Slice {
+					for _, item := range values {
+						var v reflect.Value
+						v, err = reflectx.ConvertStringTo(reflect.ValueOf(item), fieldValue.Type().Elem().Kind())
+						if err != nil {
+							return
+						}
+						fieldValue.Set(reflect.Append(fieldValue, v))
+					}
+				} else {
+					panic(errors.New("unsupported"))
+				}
+			}
 		}
-		values = mapx.Merge(values, form)
-	default:
-		var form map[string][]any
-		form, err = c.readForm()
-		if err != nil {
-			return
-		}
-		values = mapx.Merge(values, form)
 	}
 
-	if contentType == ContentTypeJson {
-		var result map[string][]any
-		result, err = c.readJson()
-		values = mapx.Merge(values, result)
-
-	}
 	return
 }
 
-func (c *Context) readHeader() (result map[string][]any) {
-	result = make(map[string][]any, len(c.r.Header))
-	for k, values := range c.r.Header {
-		result[k] = gconv.SliceAny(values)
+func (c *Context) parseCookies(destValue reflect.Value) (err error) {
+	destType := destValue.Type()
+	for i := 0; i < destValue.NumField(); i++ {
+		fieldStruct := destType.Field(i)
+		fieldValue := destValue.Field(i)
+		if fieldStruct.Anonymous {
+			err = c.parseCookies(fieldValue)
+			if err != nil {
+				return
+			}
+			continue
+		}
+
+		content := reflectx.GetTag(fieldStruct, "cookie")
+		if content != "" {
+			arr := strings.Split(content, ",")
+			var cookie *http.Cookie
+			cookie, err = c.r.Cookie(arr[0])
+
+			if err != nil {
+				if !errors.Is(err, http.ErrNoCookie) {
+					return
+				} else {
+					if !isOptional(arr[1:]) {
+						err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+						return
+					}
+					err = nil
+					continue
+				}
+			}
+			var v reflect.Value
+			v, err = reflectx.ConvertStringTo(reflect.ValueOf(cookie.Value), fieldValue.Kind())
+			if err != nil {
+				return
+			}
+			fieldValue.Set(v)
+		}
 	}
 
 	return
 }
 
-func (c *Context) readCookies() (result map[string][]any) {
-	cookies := c.r.Cookies()
-	result = make(map[string][]any, len(cookies))
-	for _, cookie := range cookies {
-		result[cookie.Name] = []any{cookie.Value}
+func (c *Context) parseForm(destValue reflect.Value) (err error) {
+	if err = c.r.ParseForm(); err != nil {
+		return
+	}
+
+	destType := destValue.Type()
+	for i := 0; i < destValue.NumField(); i++ {
+		fieldStruct := destType.Field(i)
+		fieldValue := destValue.Field(i)
+		if fieldStruct.Anonymous {
+			err = c.parseForm(fieldValue)
+			if err != nil {
+				return
+			}
+			continue
+		}
+
+		content := reflectx.GetTag(fieldStruct, "form")
+		if content != "" {
+			arr := strings.Split(content, ",") //TODO: there
+			values, ok := c.r.Form[arr[0]]
+			if !ok {
+				if !isOptional(arr[1:]) {
+					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+				}
+			}
+			switch len(values) {
+			case 1:
+				var v reflect.Value
+				v, err = reflectx.ConvertStringTo(reflect.ValueOf(values[0]), fieldValue.Kind())
+				if err != nil {
+					return
+				}
+				fieldValue.Set(v)
+			default:
+				if fieldValue.Kind() == reflect.Slice {
+					for _, item := range values {
+						var v reflect.Value
+						v, err = reflectx.ConvertStringTo(reflect.ValueOf(item), fieldValue.Type().Elem().Kind())
+						if err != nil {
+							return
+						}
+						fieldValue.Set(reflect.Append(fieldValue, v))
+					}
+				} else {
+					panic(errors.New("unsupported"))
+				}
+			}
+		}
 	}
 
 	return
