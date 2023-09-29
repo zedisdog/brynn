@@ -7,11 +7,10 @@ import (
 	"github.com/zedisdog/brynn/i18n"
 	"github.com/zedisdog/brynn/util/reflectx"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"reflect"
 	"strings"
-
-	"github.com/gogf/gf/v2/util/gconv"
 )
 
 var MaxFormSize int64 = 0 * 1024 * 1024
@@ -165,12 +164,14 @@ func (c *Context) parseForm(destValue reflect.Value) (err error) {
 
 		content := reflectx.GetTag(fieldStruct, "form")
 		if content != "" {
-			arr := strings.Split(content, ",") //TODO: there
+			arr := strings.Split(content, ",")
 			values, ok := c.r.Form[arr[0]]
-			if !ok {
+			if !ok || len(values) == 0 {
 				if !isOptional(arr[1:]) {
 					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+					return
 				}
+				continue
 			}
 			switch len(values) {
 			case 1:
@@ -200,34 +201,102 @@ func (c *Context) parseForm(destValue reflect.Value) (err error) {
 	return
 }
 
-func (c *Context) readForm() (result map[string][]any, err error) {
-	if err = c.r.ParseForm(); err != nil {
+func (c *Context) parseMultiPartForm(destValue reflect.Value) (err error) {
+	if err = c.parseForm(destValue); err != nil {
 		return
 	}
-	result = make(map[string][]any, len(c.r.Form))
-	for k, v := range c.r.Form {
-		result[k] = gconv.SliceAny(v)
-	}
 
-	return
-}
-
-func (c *Context) readMultiForm() (result map[string][]any, err error) {
 	if err = c.r.ParseMultipartForm(MaxFormSize); err != nil {
 		return
 	}
-	result = make(map[string][]any, len(c.r.Form)+len(c.r.MultipartForm.File))
-	for k, v := range c.r.Form {
-		result[k] = gconv.SliceAny(v)
-	}
 
-	for k, files := range c.r.MultipartForm.File {
-		result[k] = gconv.SliceAny(files)
+	destType := destValue.Type()
+	for i := 0; i < destValue.NumField(); i++ {
+		fieldStruct := destType.Field(i)
+		fieldValue := destValue.Field(i)
+		if fieldStruct.Anonymous {
+			err = c.parseMultiPartForm(fieldValue)
+			if err != nil {
+				return
+			}
+			continue
+		}
+
+		content := reflectx.GetTag(fieldStruct, "file")
+		if content != "" {
+			arr := strings.Split(content, ",")
+			values, ok := c.r.MultipartForm.File[arr[0]]
+			if !ok || len(values) == 0 {
+				if !isOptional(arr[1:]) {
+					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+					return
+				}
+				continue
+			}
+			switch len(values) {
+			case 1:
+				if _, ok := fieldValue.Interface().(*multipart.FileHeader); ok {
+					fieldValue.Set(reflect.ValueOf(values[0]))
+					continue
+				}
+				var (
+					f multipart.File
+					c []byte
+				)
+				f, err = values[0].Open()
+				if err != nil {
+					return
+				}
+				c, err = io.ReadAll(f)
+				if err != nil {
+					return
+				}
+				switch fieldValue.Interface().(type) {
+				case []byte:
+					fieldValue.Set(reflect.ValueOf(c))
+				case string:
+					fieldValue.Set(reflect.ValueOf(string(c)))
+				default:
+					panic(errors.New("unsupported"))
+				}
+			default:
+				if _, ok := fieldValue.Interface().([]*multipart.FileHeader); ok {
+					fieldValue.Set(reflect.ValueOf(values))
+					continue
+				}
+
+				contents := make([][]byte, 0, len(values))
+				for _, item := range values {
+					var (
+						f multipart.File
+						c []byte
+					)
+					f, err = item.Open()
+					if err != nil {
+						return
+					}
+					c, err = io.ReadAll(f)
+					if err != nil {
+						return
+					}
+					contents = append(contents, c)
+				}
+				switch fieldValue.Interface().(type) {
+				case [][]byte:
+					fieldValue.Set(reflect.ValueOf(contents))
+				case []string:
+					for _, item := range contents {
+						reflect.Append(fieldValue, reflect.ValueOf(string(item)))
+					}
+				}
+			}
+		}
 	}
 
 	return
 }
 
+// Todo:there
 func (c *Context) readJson() (result map[string][]any, err error) {
 	content, err := io.ReadAll(c.r.Body)
 	if err != nil {

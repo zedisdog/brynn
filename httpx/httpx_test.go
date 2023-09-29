@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/require"
@@ -90,6 +91,38 @@ func TestParseCookies(t *testing.T) {
 	}
 	var tst2 testStruct2
 	err = ctx.parseCookies(reflect.ValueOf(&tst2).Elem())
+	require.NotNil(t, err)
+	require.Equal(t, errx.ValidateError, err.(*errx.Error).Code)
+}
+
+func TestParseForm(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "https://www.baidu.com?a=1", bytes.NewReader([]byte("b=1&c=1&c=2")))
+	r.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	ctx := &Context{
+		r: r,
+	}
+
+	type internal struct {
+		A []int `form:"c"`
+	}
+	type testStruct struct {
+		A string `form:"b"`
+		B int    `form:"a"`
+		internal
+	}
+	var tst testStruct
+	err := ctx.parseForm(reflect.ValueOf(&tst).Elem())
+	require.Nil(t, err)
+	require.Equal(t, "1", tst.A)
+	require.Equal(t, 1, tst.B)
+	require.Equal(t, []int{1, 2}, tst.internal.A)
+
+	type testStruct2 struct {
+		A string `form:"d"`
+	}
+	var tst2 testStruct2
+	err = ctx.parseForm(reflect.ValueOf(&tst2).Elem())
 	require.NotNil(t, err)
 	require.Equal(t, errx.ValidateError, err.(*errx.Error).Code)
 }
