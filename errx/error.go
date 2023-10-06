@@ -2,11 +2,11 @@ package errx
 
 import (
 	"fmt"
-	"github.com/zedisdog/brynn/i18n"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"runtime"
 	"strings"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func wrap(err error, code Code, message string, skip int) error {
@@ -128,13 +128,16 @@ func (e Error) GRPCStatus() *status.Status {
 			err error
 		)
 		if err != nil { //如果构建status报错，就直接使用报错信息构建status
-			return WrapMsg(err, i18n.Trans("build status failed")).(*Error).GRPCStatus()
+			return WrapMsg(err, "build status failed").(*Error).GRPCStatus()
 		}
 		m := &Map{}
 		m.Fields, err = Map2Pb(e.Details)
+		if err != nil { //如果构建status报错，就直接使用报错信息构建status
+			return WrapMsg(err, "build status failed").(*Error).GRPCStatus()
+		}
 		s, err = s.WithDetails(m)
 		if err != nil { //如果构建status报错，就直接使用报错信息构建status
-			return WrapMsg(err, i18n.Trans("build status failed")).(*Error).GRPCStatus()
+			return WrapMsg(err, "build status failed").(*Error).GRPCStatus()
 		}
 	}
 

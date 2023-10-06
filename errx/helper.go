@@ -1,9 +1,10 @@
 package errx
 
 import (
-	"github.com/zedisdog/brynn/i18n"
 	"reflect"
 	"strconv"
+
+	"github.com/zedisdog/brynn/i18n"
 )
 
 func PbMap2MapStrAny(pbMap *Map) (m map[string]any, err error) {
@@ -35,14 +36,14 @@ func PbValue2Any(pbValue *Value) (v any, err error) {
 }
 
 func PbList2SliceAny(pbList *List) (s []any, err error) {
-	tmp := make([]any, len(pbList.List))
+	s = make([]any, len(pbList.List))
 	for _, item := range pbList.List {
 		var res any
 		res, err = PbValue2Any(item)
 		if err != nil {
-			break
+			return
 		}
-		tmp = append(tmp, res)
+		s = append(s, res)
 	}
 
 	return

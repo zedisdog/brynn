@@ -2,39 +2,40 @@ package errx
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
 	_, file, line, _ := runtime.Caller(0)
 
-	err := New("test").(*Error)
+	err := NewMsg("test").(*Error)
 
-	require.Equal(t, file, err.file)
-	require.Equal(t, line+2, err.line)
+	require.Equal(t, file, err.Details["file"])
+	require.Equal(t, line+2, err.Details["line"])
 }
 
 func TestWrap(t *testing.T) {
 	_, file, line, _ := runtime.Caller(0)
 
-	err := New("test1")
-	err2 := Wrap(err, "test2").(*Error)
+	err := NewMsg("test1")
+	err2 := WrapMsg(err, "test2").(*Error)
 
-	require.Equal(t, file, err2.file)
-	require.Equal(t, line+3, err2.line)
+	require.Equal(t, file, err2.Details["file"])
+	require.Equal(t, line+3, err2.Details["line"])
 }
 
 func TestFormat(t *testing.T) {
 	_, file, line, _ := runtime.Caller(0)
 
-	err1 := New("test1")
-	err2 := Wrap(err1, "test2")
-	err3 := Wrap(err2, "test3")
+	err1 := NewMsg("test1")
+	err2 := WrapMsg(err1, "test2")
+	err3 := WrapMsg(err2, "test3")
 
-	require.Equal(t, "test3", fmt.Sprintf("%v", err3))
+	require.Equal(t, "test3]<=[test2]<=[test1", fmt.Sprintf("%v", err3))
 	require.Equal(t, fmt.Sprintf("%s:%d:test3\n", file, line+4), fmt.Sprintf("%+v", err3))
 
 	except := []string{

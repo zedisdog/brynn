@@ -6,16 +6,34 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"github.com/zedisdog/brynn/errx"
-	"mime"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 )
 
+func convertTypeOfPtr(tp reflect.Type, target reflect.Value) reflect.Value {
+	// keep the original value is a pointer
+	if tp.Kind() == reflect.Ptr && target.CanAddr() {
+		tp = tp.Elem()
+		target = target.Addr()
+	}
+
+	for tp.Kind() == reflect.Ptr {
+		p := reflect.New(target.Type())
+		p.Elem().Set(target)
+		target = p
+		tp = tp.Elem()
+	}
+
+	return target
+}
+
 func TestXxx(t *testing.T) {
-	types, _ := mime.ExtensionsByType("application/x-www-form-urlencoded")
-	fmt.Printf("%+v\n", types)
+	a := 1
+	fmt.Printf("%p\n", &a)
+	res := convertTypeOfPtr(reflect.TypeOf(&a), reflect.ValueOf(a))
+	fmt.Printf("%#v\n", res.Interface())
 }
 
 func TestXxx2(t *testing.T) {
