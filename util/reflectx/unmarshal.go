@@ -11,6 +11,7 @@ func Unmarshal(src any, dest any, tags ...string) (err error) {
 	return
 }
 
+// TODO: unmarshalSlice
 func unmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err error) {
 	for i := 0; i < dest.NumField(); i++ {
 		if dest.Type().Field(i).Anonymous {
