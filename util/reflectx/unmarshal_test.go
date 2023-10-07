@@ -35,6 +35,7 @@ func TestMapStrust(t *testing.T) {
 		"e": map[string]any{
 			"a": 1,
 		},
+		"f": []any{1},
 	}
 	type testMapStruct2 struct {
 		D int `json:"d"`
@@ -47,6 +48,7 @@ func TestMapStrust(t *testing.T) {
 		E struct {
 			A int `json:"a"`
 		} `json:"e"`
+		F []int `json:"f"`
 	}
 	var mStruct testMapStruct
 
@@ -57,4 +59,50 @@ func TestMapStrust(t *testing.T) {
 	require.Equal(t, 1, *mStruct.C)
 	require.Equal(t, 1, mStruct.D)
 	require.Equal(t, 1, mStruct.E.A)
+	require.Equal(t, []int{1}, mStruct.F)
+}
+
+func TestSlice(t *testing.T) {
+	a := []any{1}
+	var b []int
+
+	res, err := unmarshalSlice(a, reflect.ValueOf(b))
+	require.Nil(t, err)
+	require.Equal(t, []int{1}, res.Interface())
+}
+
+func TestSliceStruct(t *testing.T) {
+	type s struct {
+		A int `json:"a"`
+	}
+	a := []any{
+		map[string]any{
+			"a": 1,
+		},
+	}
+	b := make([]s, 0, len(a))
+
+	res, err := unmarshalSlice(a, reflect.ValueOf(b), "json")
+	require.Nil(t, err)
+	require.Equal(t, []s{
+		{A: 1},
+	}, res.Interface())
+}
+
+func TestSliceStructPtr(t *testing.T) {
+	type s struct {
+		A int `json:"a"`
+	}
+	a := []any{
+		map[string]any{
+			"a": 1,
+		},
+	}
+	b := make([]*s, 0, len(a))
+
+	res, err := unmarshalSlice(a, reflect.ValueOf(b), "json")
+	require.Nil(t, err)
+	require.Equal(t, []*s{
+		{A: 1},
+	}, res.Interface())
 }

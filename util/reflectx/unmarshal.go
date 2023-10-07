@@ -1,6 +1,7 @@
 package reflectx
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,8 +12,45 @@ func Unmarshal(src any, dest any, tags ...string) (err error) {
 	return
 }
 
+func baseType(v reflect.Type) (t reflect.Type) {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	return v
+}
+
+func unmarshalSlice(src []any, dest reflect.Value, tags ...string) (result reflect.Value, err error) {
+	if dest.Kind() != reflect.Slice {
+		err = errors.New("data structure mismatched")
+		return
+	}
+
+	elementType := dest.Type().Elem()
+	result = reflect.MakeSlice(dest.Type(), 0, len(src))
+	for _, item := range src {
+		switch x := item.(type) {
+		case map[string]any:
+			v := reflect.New(baseType(elementType))
+			err = unmarshalMap(x, v.Elem(), tags...)
+			if err != nil {
+				return
+			}
+			result = reflect.Append(result, convertTypeOfPtr(dest.Type().Elem(), v.Elem()))
+		default:
+			result = reflect.Append(result, convertTypeOfPtr(dest.Type().Elem(), reflect.ValueOf(item)))
+		}
+	}
+
+	return
+}
+
 // TODO: unmarshalSlice
 func unmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err error) {
+	if dest.Kind() != reflect.Struct {
+		err = errors.New("data structure mismatched")
+		return
+	}
 	for i := 0; i < dest.NumField(); i++ {
 		if dest.Type().Field(i).Anonymous {
 			err = unmarshalMap(src, dest.Field(i), tags...)
@@ -44,6 +82,13 @@ func unmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 			if err != nil {
 				return
 			}
+		case []any:
+			var res reflect.Value
+			res, err = unmarshalSlice(x, dest.Field(i))
+			if err != nil {
+				return
+			}
+			dest.Field(i).Set(res)
 		default:
 			valValue := reflect.ValueOf(val)
 			if valValue.IsZero() {
