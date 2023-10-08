@@ -2,46 +2,15 @@ package httpx
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"github.com/stretchr/testify/require"
 	"github.com/zedisdog/brynn/errx"
+	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 )
-
-func convertTypeOfPtr(tp reflect.Type, target reflect.Value) reflect.Value {
-	// keep the original value is a pointer
-	if tp.Kind() == reflect.Ptr && target.CanAddr() {
-		tp = tp.Elem()
-		target = target.Addr()
-	}
-
-	for tp.Kind() == reflect.Ptr {
-		p := reflect.New(target.Type())
-		p.Elem().Set(target)
-		target = p
-		tp = tp.Elem()
-	}
-
-	return target
-}
-
-func TestXxx(t *testing.T) {
-	a := 1
-	fmt.Printf("%p\n", &a)
-	res := convertTypeOfPtr(reflect.TypeOf(&a), reflect.ValueOf(a))
-	fmt.Printf("%#v\n", res.Interface())
-}
-
-func TestXxx2(t *testing.T) {
-	j := `{"a": 1, "b": 2, "c": [1,2,3]}`
-	var v any
-	json.Unmarshal([]byte(j), &v)
-	fmt.Printf("%#v\n", v.(map[string]any)["c"])
-}
 
 func TestParseHeader(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "https://www.baidu.com", nil)
@@ -143,4 +112,46 @@ func TestParseForm(t *testing.T) {
 	err = ctx.parseForm(reflect.ValueOf(&tst2).Elem())
 	require.NotNil(t, err)
 	require.Equal(t, errx.ValidateError, err.(*errx.Error).Code)
+}
+
+//go:generate go test -bench=Benchmark.+Parse
+
+func BenchmarkSelfParse(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		j := `{"c": [1,2,3]}`
+		r := httptest.NewRequest(http.MethodPost, "https://www.baidu.com?a=1", strings.NewReader(j))
+		r.Header.Add("Content-Type", "application/json")
+		r.Header.Add("b", "1")
+
+		ctx := Context{
+			r: r,
+		}
+
+		type request struct {
+			A string `form:"a"`
+			B string `header:"b"`
+			C []int  `json:"c"`
+		}
+		var req request
+		err := ctx.Parse(&req)
+		require.Nil(b, err)
+	}
+}
+
+func BenchmarkGozeroParse(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		j := `{"c": [1,2,3]}`
+		r := httptest.NewRequest(http.MethodPost, "https://www.baidu.com?a=1", strings.NewReader(j))
+		r.Header.Add("Content-Type", "application/json")
+		r.Header.Add("b", "1")
+
+		type request struct {
+			A string `form:"a"`
+			B string `header:"b"`
+			C []int  `json:"c"`
+		}
+		var req request
+		err := httpx.Parse(r, &req)
+		require.Nil(b, err)
+	}
 }

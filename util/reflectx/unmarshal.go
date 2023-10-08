@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-func Unmarshal(src any, dest any, tags ...string) (err error) {
-
-	return
-}
-
 func baseType(v reflect.Type) (t reflect.Type) {
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -20,7 +15,8 @@ func baseType(v reflect.Type) (t reflect.Type) {
 	return v
 }
 
-func unmarshalSlice(src []any, dest reflect.Value, tags ...string) (result reflect.Value, err error) {
+// UnmarshalSlice 解析[]any到其他变量中
+func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (result reflect.Value, err error) {
 	if dest.Kind() != reflect.Slice {
 		err = errors.New("data structure mismatched")
 		return
@@ -32,11 +28,18 @@ func unmarshalSlice(src []any, dest reflect.Value, tags ...string) (result refle
 		switch x := item.(type) {
 		case map[string]any:
 			v := reflect.New(baseType(elementType))
-			err = unmarshalMap(x, v.Elem(), tags...)
+			err = UnmarshalMap(x, v.Elem(), tags...)
 			if err != nil {
 				return
 			}
 			result = reflect.Append(result, convertTypeOfPtr(dest.Type().Elem(), v.Elem()))
+		case float64:
+			var v reflect.Value
+			v, err = ConvertFloatTo(reflect.ValueOf(x), elementType.Kind())
+			if err != nil {
+				return
+			}
+			result = reflect.Append(result, convertTypeOfPtr(dest.Type().Elem(), v))
 		default:
 			result = reflect.Append(result, convertTypeOfPtr(dest.Type().Elem(), reflect.ValueOf(item)))
 		}
@@ -45,15 +48,15 @@ func unmarshalSlice(src []any, dest reflect.Value, tags ...string) (result refle
 	return
 }
 
-// TODO: unmarshalSlice
-func unmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err error) {
+// UnmarshalMap 解析map[string]any到结构体中
+func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err error) {
 	if dest.Kind() != reflect.Struct {
 		err = errors.New("data structure mismatched")
 		return
 	}
 	for i := 0; i < dest.NumField(); i++ {
 		if dest.Type().Field(i).Anonymous {
-			err = unmarshalMap(src, dest.Field(i), tags...)
+			err = UnmarshalMap(src, dest.Field(i), tags...)
 			if err != nil {
 				return
 			}
@@ -78,17 +81,33 @@ func unmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 
 		switch x := val.(type) {
 		case map[string]any:
-			err = unmarshalMap(x, dest.Field(i), tags...)
-			if err != nil {
-				return
+			if dest.Field(i).Kind() == reflect.Ptr {
+				v := reflect.New(baseType(dest.Field(i).Type()))
+				err = UnmarshalMap(x, v.Elem(), tags...)
+				if err != nil {
+					return
+				}
+				dest.Field(i).Set(convertTypeOfPtr(dest.Field(i).Type(), v.Elem()))
+			} else {
+				err = UnmarshalMap(x, dest.Field(i), tags...)
+				if err != nil {
+					return
+				}
 			}
 		case []any:
 			var res reflect.Value
-			res, err = unmarshalSlice(x, dest.Field(i))
+			res, err = UnmarshalSlice(x, dest.Field(i), tags...)
 			if err != nil {
 				return
 			}
 			dest.Field(i).Set(res)
+		case float64:
+			var v reflect.Value
+			v, err = ConvertFloatTo(reflect.ValueOf(x), baseType(dest.Field(i).Type()).Kind())
+			if err != nil {
+				return
+			}
+			dest.Field(i).Set(convertTypeOfPtr(dest.Field(i).Type(), v))
 		default:
 			valValue := reflect.ValueOf(val)
 			if valValue.IsZero() {
@@ -106,14 +125,7 @@ func unmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 	return
 }
 
-func baseKind(value reflect.Value) reflect.Kind {
-	for value.Kind() == reflect.Ptr {
-		value = value.Elem()
-	}
-
-	return value.Kind()
-}
-
+// convertTypeOfPtr 自动处理指针的赋值, 从gozero抄来的
 func convertTypeOfPtr(tp reflect.Type, target reflect.Value) reflect.Value {
 	// keep the original value is a pointer
 	if tp.Kind() == reflect.Ptr && target.CanAddr() {
@@ -133,7 +145,7 @@ func convertTypeOfPtr(tp reflect.Type, target reflect.Value) reflect.Value {
 
 func isOptional(arr []string) bool {
 	for _, item := range arr {
-		if item == "optional" {
+		if item == "optional" || item == "omitempty" {
 			return true
 		}
 	}

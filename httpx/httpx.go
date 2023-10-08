@@ -20,38 +20,33 @@ type Context struct {
 	w http.ResponseWriter
 }
 
-//func (c *Context) Parse(v any) (err error) {
-//	var values map[string][]any
-//
-//	values = mapx.Merge(values, c.readHeader())
-//	values = mapx.Merge(values, c.readCookies())
-//
-//	contentType := ContentType(c.r.Header.Get("Content-Type"))
-//	switch contentType {
-//	case ContentTypeMultiPartForm:
-//		var form map[string][]any
-//		form, err = c.readMultiForm()
-//		if err != nil {
-//			return
-//		}
-//		values = mapx.Merge(values, form)
-//	default:
-//		var form map[string][]any
-//		form, err = c.readForm()
-//		if err != nil {
-//			return
-//		}
-//		values = mapx.Merge(values, form)
-//	}
-//
-//	if contentType == ContentTypeJson {
-//		var result map[string][]any
-//		result, err = c.readJson()
-//		values = mapx.Merge(values, result)
-//
-//	}
-//	return
-//}
+func (c *Context) Parse(v any) (err error) {
+	destValue := reflect.ValueOf(v)
+	if destValue.Kind() != reflect.Ptr {
+		err = errx.New(errx.InternalError, "pointer required")
+		return
+	}
+	destValue = destValue.Elem()
+	err = c.parseHeader(destValue)
+	if err != nil {
+		return
+	}
+	err = c.parseCookies(destValue)
+	if err != nil {
+		return
+	}
+
+	switch ContentType(c.r.Header.Get("Content-Type")) {
+	case ContentTypeForm:
+		err = c.parseForm(destValue)
+	case ContentTypeMultiPartForm:
+		err = c.parseMultiPartForm(destValue)
+	case ContentTypeJson:
+		err = c.parseForm(destValue)
+		err = c.parseJson(destValue)
+	}
+	return
+}
 
 func (c *Context) parseHeader(destValue reflect.Value) (err error) {
 	destType := destValue.Type()
@@ -306,66 +301,5 @@ func (c *Context) parseJson(destValue reflect.Value) (err error) {
 	if err != nil {
 		return
 	}
-	return c.Assign(req, destValue, "json")
-}
-
-// Todo:there
-//func (c *Context) readJson() (result map[string][]any, err error) {
-//	content, err := io.ReadAll(c.r.Body)
-//	if err != nil {
-//		return
-//	}
-//	var v any
-//	err = json.Unmarshal(content, &v)
-//	if err != nil {
-//		return
-//	}
-//
-//	result = make(map[string][]any, 1)
-//	value := reflect.ValueOf(v)
-//	if value.Kind() == reflect.Slice {
-//		result["body"] = v.([]any)
-//	}
-//
-//	if value.Kind() == reflect.Map {
-//		for k, v := range v.(map[string]any) {
-//			result[k] = []any{v}
-//		}
-//	}
-//
-//	return
-//}
-
-func (c *Context) Assign(src any, dest reflect.Value, tags ...string) (err error) {
-	srcValue := reflect.ValueOf(src)
-	if srcValue.Kind() == dest.Kind() {
-		dest.Set(srcValue)
-		return
-	}
-
-	destType := reflect.TypeOf(dest)
-	switch src.(type) {
-	case map[string]any:
-		for i := 0; i>dest.NumField(); i++ {
-			content := reflectx.GetTag(destType.Field(i), tags...)
-			arr := strings.Split(content, ",")
-			if content == "" {
-				continue
-			}
-			fieldValue := dest.Field(i)
-			if fieldValue.IsZero() {
-				if !isOptional(arr[1:]) {
-					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
-					return
-				}
-				continue
-			}
-
-		}
-	case []any:
-	default:
-		panic(errors.New("unsupported"))
-	}
-
-	return
+	return reflectx.UnmarshalMap(req, destValue, "json")
 }
