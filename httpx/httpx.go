@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var MaxFormSize int64 = 0 * 1024 * 1024
+var MaxFormSize int64 = 10 * 1024 * 1024
 
 type Context struct {
 	r *http.Request
@@ -67,7 +67,7 @@ func (c *Context) parseHeader(destValue reflect.Value) (err error) {
 			values := c.r.Header.Values(arr[0])
 			switch len(values) {
 			case 0:
-				if !isOptional(arr[1:]) {
+				if !reflectx.IsOptional(arr[1:]) {
 					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
 				}
 			case 1:
@@ -120,7 +120,7 @@ func (c *Context) parseCookies(destValue reflect.Value) (err error) {
 				if !errors.Is(err, http.ErrNoCookie) {
 					return
 				} else {
-					if !isOptional(arr[1:]) {
+					if !reflectx.IsOptional(arr[1:]) {
 						err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
 						return
 					}
@@ -162,7 +162,7 @@ func (c *Context) parseForm(destValue reflect.Value) (err error) {
 			arr := strings.Split(content, ",")
 			values, ok := c.r.Form[arr[0]]
 			if !ok || len(values) == 0 {
-				if !isOptional(arr[1:]) {
+				if !reflectx.IsOptional(arr[1:]) {
 					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
 					return
 				}
@@ -222,7 +222,7 @@ func (c *Context) parseMultiPartForm(destValue reflect.Value) (err error) {
 			arr := strings.Split(content, ",")
 			values, ok := c.r.MultipartForm.File[arr[0]]
 			if !ok || len(values) == 0 {
-				if !isOptional(arr[1:]) {
+				if !reflectx.IsOptional(arr[1:]) {
 					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
 					return
 				}

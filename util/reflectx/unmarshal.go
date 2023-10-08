@@ -72,7 +72,7 @@ func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 		val, ok := src[arr[0]]
 
 		if !ok {
-			if !isOptional(arr[1:]) {
+			if !IsOptional(arr[1:]) {
 				err = fmt.Errorf("field [%s] is required", arr[0])
 				return
 			}
@@ -111,7 +111,7 @@ func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 		default:
 			valValue := reflect.ValueOf(val)
 			if valValue.IsZero() {
-				if !isOptional(arr[1:]) {
+				if !IsOptional(arr[1:]) {
 					err = fmt.Errorf("field [%s] is required", arr[0])
 					return
 				}
@@ -143,7 +143,7 @@ func convertTypeOfPtr(tp reflect.Type, target reflect.Value) reflect.Value {
 	return target
 }
 
-func isOptional(arr []string) bool {
+func IsOptional(arr []string) bool {
 	for _, item := range arr {
 		if item == "optional" || item == "omitempty" {
 			return true

@@ -16,7 +16,12 @@ const (
 	ZhCn Language = "zh_cn"
 )
 
-var data = map[Language]map[string]string{}
+var data = map[Language]map[string]string{
+	ZhCn: {
+		"field [:field] is required": "字段 [:field] 不能为空",
+		"unknown error code [:code]": "未知的错误码 [:code]",
+	},
+}
 
 func Set(data map[Language]map[string]string) {
 	data = data
