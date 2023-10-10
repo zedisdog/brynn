@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func baseType(v reflect.Type) (t reflect.Type) {
+func BaseType(v reflect.Type) (t reflect.Type) {
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
@@ -27,7 +27,7 @@ func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (result refle
 	for _, item := range src {
 		switch x := item.(type) {
 		case map[string]any:
-			v := reflect.New(baseType(elementType))
+			v := reflect.New(BaseType(elementType))
 			err = UnmarshalMap(x, v.Elem(), tags...)
 			if err != nil {
 				return
@@ -82,7 +82,7 @@ func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 		switch x := val.(type) {
 		case map[string]any:
 			if dest.Field(i).Kind() == reflect.Ptr {
-				v := reflect.New(baseType(dest.Field(i).Type()))
+				v := reflect.New(BaseType(dest.Field(i).Type()))
 				err = UnmarshalMap(x, v.Elem(), tags...)
 				if err != nil {
 					return
@@ -103,7 +103,7 @@ func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 			dest.Field(i).Set(res)
 		case float64:
 			var v reflect.Value
-			v, err = ConvertFloatTo(reflect.ValueOf(x), baseType(dest.Field(i).Type()).Kind())
+			v, err = ConvertFloatTo(reflect.ValueOf(x), BaseType(dest.Field(i).Type()).Kind())
 			if err != nil {
 				return
 			}

@@ -1,7 +1,6 @@
 package ginx
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -11,8 +10,8 @@ import (
 )
 
 func MakeRequest() *http.Request {
-	j := `{"c": [1,2,3]}`
-	r := httptest.NewRequest(http.MethodPost, "https://www.baidu.com/?a=1&filters[sort]=1", strings.NewReader(j))
+	j := `{"c": [1,2,3], "e": [1, 2]}`
+	r := httptest.NewRequest(http.MethodPost, "https://www.baidu.com/?a=1&filters[sort]=1&d=1&d=2&f=1&f=2", strings.NewReader(j))
 	r.Header.Add("Content-Type", "application/json")
 	r.Header.Add("b", "1")
 	return r
@@ -20,10 +19,13 @@ func MakeRequest() *http.Request {
 
 func TestParse(t *testing.T) {
 	type request struct {
-		A int               `form:"a"`
-		B int               `header:"b"`
-		C []int             `json:"c"`
-		D map[string]string `form:"filters"`
+		A int            `form:"a"`
+		B int            `header:"b"`
+		C []int          `json:"c"`
+		D map[string]int `form:"filters"`
+		E []int          `form:"d"`
+		F []*int         `json:"e"`
+		G []int          `form:"f"` //FIXME: 不能用指针[]*int
 	}
 	var req request
 
@@ -34,7 +36,10 @@ func TestParse(t *testing.T) {
 		require.Equal(t, 1, req.B)
 		require.Equal(t, 1, req.A)
 		require.Equal(t, []int{1, 2, 3}, req.C)
-		fmt.Printf("%+v\n", req.D)
+		require.Equal(t, map[string]int{"sort": 1}, req.D)
+		require.Equal(t, []int{1, 2}, req.E)
+		require.Equal(t, 1, *req.F[0])
+		require.Equal(t, 2, req.G[1])
 	})
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, MakeRequest())

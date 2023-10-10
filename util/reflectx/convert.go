@@ -15,6 +15,62 @@ func ConvertTo[T any](src reflect.Value) (result T, err error) {
 	return
 }
 
+func ConvertSliceStr2SliceType(srcValue reflect.Value, t reflect.Type) (result reflect.Value, err error) {
+	if srcValue.Kind() != reflect.Slice {
+		err = errors.New("not a slice")
+		return
+	}
+	if srcValue.Type().Elem().Kind() != reflect.String {
+		err = errors.New("element must be string")
+		return
+	}
+
+	result = reflect.MakeSlice(reflect.SliceOf(t), 0, srcValue.Len())
+
+	for i := 0; i < srcValue.Len(); i++ {
+		var (
+			convedItem reflect.Value
+		)
+		item := srcValue.Index(i)
+		convedItem, err = ConvertStringTo(item, t.Kind())
+		if err != nil {
+			return
+		}
+		result = reflect.Append(result, convedItem)
+	}
+
+	return
+}
+
+func ConvertMapStrStr2MapStrType(src reflect.Value, t reflect.Type) (result reflect.Value, err error) {
+	if src.Kind() != reflect.Map {
+		err = errors.New("not a map")
+		return
+	}
+	if src.Type().Key().Kind() != reflect.String {
+		err = errors.New("key must be string")
+		return
+	}
+	if src.Type().Elem().Kind() != reflect.String {
+		err = errors.New("value must be string")
+		return
+	}
+
+	result = reflect.MakeMapWithSize(reflect.MapOf(reflect.TypeOf(""), t), src.Len())
+
+	it := src.MapRange()
+	for it.Next() {
+		var v reflect.Value
+		v, err = ConvertStringTo(it.Value(), t.Kind())
+		if err != nil {
+			return
+		}
+		result.SetMapIndex(it.Key(), v)
+	}
+
+	return
+}
+
 func ConvertMapStrAny2MapStrType(src reflect.Value, t reflect.Type) (result reflect.Value, err error) {
 	if src.Kind() != reflect.Map {
 		err = errors.New("not a map")
