@@ -15,6 +15,31 @@ func ConvertTo[T any](src reflect.Value) (result T, err error) {
 	return
 }
 
+func ConvertMapStrAny2MapStrType(src reflect.Value, t reflect.Type) (result reflect.Value, err error) {
+	if src.Kind() != reflect.Map {
+		err = errors.New("not a map")
+		return
+	}
+	if src.Type().Key().Kind() != reflect.String {
+		err = errors.New("key must be string")
+		return
+	}
+
+	result = reflect.MakeMapWithSize(reflect.MapOf(reflect.TypeOf(""), t), src.Len())
+
+	it := src.MapRange()
+	for it.Next() {
+		var v reflect.Value
+		v, err = ConvertToType(it.Value(), t.Kind())
+		if err != nil {
+			return
+		}
+		result.SetMapIndex(it.Key(), v)
+	}
+
+	return
+}
+
 func ConvertToType(src reflect.Value, kind reflect.Kind) (result reflect.Value, err error) {
 	var r reflect.Value
 	switch src.Kind() {
@@ -28,6 +53,19 @@ func ConvertToType(src reflect.Value, kind reflect.Kind) (result reflect.Value, 
 		r, err = ConvertStringTo(src, kind)
 	case reflect.Float32, reflect.Float64:
 		r, err = ConvertFloatTo(src, kind)
+	case reflect.Interface:
+		switch x := src.Interface().(type) {
+		case int, int8, int16, int32, int64:
+			r, err = ConvertIntTo(reflect.ValueOf(x), kind)
+		case uint, uint8, uint16, uint32, uint64:
+			r, err = ConvertUintTo(reflect.ValueOf(x), kind)
+		case bool:
+			r, err = ConvertBoolTo(reflect.ValueOf(x), kind)
+		case string:
+			r, err = ConvertStringTo(reflect.ValueOf(x), kind)
+		case float64, float32:
+			r, err = ConvertFloatTo(reflect.ValueOf(x), kind)
+		}
 	default:
 		err = errors.New("unsupported type")
 		return
