@@ -261,6 +261,9 @@ func ConvertIntTo(src reflect.Value, kind reflect.Kind) (result reflect.Value, e
 }
 
 func ConvertFloatTo(src reflect.Value, kind reflect.Kind) (result reflect.Value, err error) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
 	r := src.Float()
 	switch kind {
 	case reflect.Int:

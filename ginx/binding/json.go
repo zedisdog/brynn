@@ -5,6 +5,7 @@
 package binding
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/zedisdog/brynn/errx"
 	"github.com/zedisdog/brynn/util/reflectx"
@@ -43,13 +44,20 @@ func (j jsonBinding) Bind(req *http.Request, obj any) (err error) {
 
 func (j jsonBinding) BindBody(body []byte, obj any) (err error) {
 	var r any
-	err = json.Unmarshal(body, &r)
+	decoder := json.NewDecoder(bytes.NewBuffer(body))
+	if EnableDecoderUseNumber {
+		decoder.UseNumber()
+	}
+	if EnableDecoderDisallowUnknownFields {
+		decoder.DisallowUnknownFields()
+	}
+
+	err = decoder.Decode(&r)
 	if err != nil {
 		return
 	}
 
-	destValue := reflect.ValueOf(obj).Elem()
-	err = reflectx.Unmarshal(r, destValue, "json")
+	err = reflectx.Unmarshal(r, reflect.ValueOf(obj), "json")
 	if err != nil {
 		return
 	}

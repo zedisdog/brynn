@@ -8,9 +8,9 @@ import (
 
 func TestMap(t *testing.T) {
 	m := map[string]any{
-		"a": 1,
+		"a": float64(1),
 		"b": "1",
-		"c": 1,
+		"c": float64(1),
 	}
 	type testMapStruct struct {
 		A int    `json:"a"`
@@ -19,7 +19,7 @@ func TestMap(t *testing.T) {
 	}
 	var mStruct testMapStruct
 
-	err := UnmarshalMap(m, reflect.ValueOf(&mStruct).Elem(), "json")
+	err := UnmarshalMap(m, reflect.ValueOf(&mStruct), "json")
 	require.Nil(t, err)
 	require.Equal(t, "1", mStruct.B)
 	require.Equal(t, 1, mStruct.A)
@@ -45,24 +45,24 @@ func TestMapStrust(t *testing.T) {
 			},
 		},
 	}
-	type testMapStruct2 struct {
+	type TestMapStruct2 struct {
 		D int `json:"d"`
 	}
 	type testMapStruct struct {
 		A *int   `json:"a"`
 		B string `json:"b"`
 		C *int   `json:"c"`
-		testMapStruct2
+		TestMapStruct2
 		E struct {
 			A int `json:"a"`
 		} `json:"e"`
 		F []int             `json:"f"`
-		G *testMapStruct2   `json:"g"`
-		H []*testMapStruct2 `json:"h"`
+		G *TestMapStruct2   `json:"g"`
+		H []*TestMapStruct2 `json:"h"`
 	}
 	var mStruct testMapStruct
 
-	err := UnmarshalMap(m, reflect.ValueOf(&mStruct).Elem(), "json")
+	err := UnmarshalMap(m, reflect.ValueOf(&mStruct), "json")
 	require.Nil(t, err)
 	require.Equal(t, "1", mStruct.B)
 	require.Equal(t, int(1), *mStruct.A)
@@ -76,11 +76,11 @@ func TestMapStrust(t *testing.T) {
 
 func TestSlice(t *testing.T) {
 	a := []any{1}
-	var b []int
+	var b []*int
 
-	err := UnmarshalSlice(a, reflect.ValueOf(b))
+	err := UnmarshalSlice(a, reflect.ValueOf(&b))
 	require.Nil(t, err)
-	require.Equal(t, []int{1}, b)
+	require.Equal(t, 1, *(b[0]))
 }
 
 func TestSliceStruct(t *testing.T) {
@@ -94,7 +94,7 @@ func TestSliceStruct(t *testing.T) {
 	}
 	b := make([]s, 0, len(a))
 
-	err := UnmarshalSlice(a, reflect.ValueOf(b), "json")
+	err := UnmarshalSlice(a, reflect.ValueOf(&b), "json")
 	require.Nil(t, err)
 	require.Equal(t, []s{
 		{A: 1},
@@ -112,7 +112,7 @@ func TestSliceStructPtr(t *testing.T) {
 	}
 	b := make([]*s, 0, len(a))
 
-	err := UnmarshalSlice(a, reflect.ValueOf(b), "json")
+	err := UnmarshalSlice(a, reflect.ValueOf(&b), "json")
 	require.Nil(t, err)
 	require.Equal(t, []*s{
 		{A: 1},

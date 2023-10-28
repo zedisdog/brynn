@@ -44,9 +44,9 @@ func TestConvertMapStrAny2MapStrType(t *testing.T) {
 
 func TestSet(t *testing.T) {
 	a := 1
-	var b ***int
+	var b **int
 	SetValue(a, reflect.ValueOf(&b))
-	require.Equal(t, a, ***b)
+	require.Equal(t, a, **b)
 
 	c := []string{"1"}
 	var d *[]string

@@ -2,7 +2,6 @@ package reflectx
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -27,7 +26,7 @@ func Unmarshal(src any, dest reflect.Value, tags ...string) (err error) {
 }
 
 func SetValue(src any, dest reflect.Value) {
-	if dest.Kind() != reflect.Ptr {
+	if dest.Kind() != reflect.Ptr || dest.IsNil() {
 		if dest.CanAddr() {
 			dest = dest.Addr()
 		} else {
@@ -49,18 +48,31 @@ func SetValue(src any, dest reflect.Value) {
 		tp = tp.Elem()
 	}
 
-	dest.Elem().Set(v)
+	if BaseKind(v) == reflect.Float64 {
+		if BaseType(dest.Type()).Kind() == reflect.Interface {
+			dest.Elem().Set(v)
+		} else {
+			var err error
+			v, err = ConvertFloatTo(v, BaseType(dest.Type()).Kind())
+			if err != nil {
+				panic(err)
+			}
+			SetValue(v.Interface(), dest)
+		}
+	} else {
+		dest.Elem().Set(v)
+	}
 }
 
 func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (err error) {
-	if BaseKind(dest) != reflect.Slice {
+	if BaseType(dest.Type()).Kind() != reflect.Slice {
 		err = errors.New("data structure mismatched")
 		return
 	}
 
 	s := reflect.MakeSlice(BaseTypeByValue(dest), 0, len(src))
 	for _, item := range src {
-		v := reflect.New(BaseTypeByValue(dest))
+		v := reflect.New(BaseTypeByValue(dest).Elem())
 		switch x := item.(type) {
 		case []any:
 			err = UnmarshalSlice(x, v, tags...)
@@ -72,90 +84,93 @@ func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (err error) {
 			if err != nil {
 				return
 			}
+		case float64:
+			if BaseType(v.Type()).Kind() == reflect.Float64 ||
+				BaseType(v.Type()).Kind() == reflect.Float32 ||
+				BaseType(v.Type()).Kind() == reflect.Uint ||
+				BaseType(v.Type()).Kind() == reflect.Uint16 ||
+				BaseType(v.Type()).Kind() == reflect.Uint8 ||
+				BaseType(v.Type()).Kind() == reflect.Uint32 ||
+				BaseType(v.Type()).Kind() == reflect.Uint64 ||
+				BaseType(v.Type()).Kind() == reflect.Int ||
+				BaseType(v.Type()).Kind() == reflect.Int64 ||
+				BaseType(v.Type()).Kind() == reflect.Int32 ||
+				BaseType(v.Type()).Kind() == reflect.Int16 ||
+				BaseType(v.Type()).Kind() == reflect.Int8 {
+				SetValue(x, v)
+			} else {
+				err = errors.New("data structure mismatched")
+				return
+			}
 		default:
 			SetValue(x, v)
 		}
-		s = reflect.Append(s, v)
+		s = reflect.Append(s, v.Elem())
 	}
 
-	SetValue(s.Interface().([]any), dest)
+	SetValue(s.Interface(), dest)
 
 	return
 }
 
-// UnmarshalMap 解析map[string]any到结构体中
 func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err error) {
-	if dest.Kind() != reflect.Struct {
+	if BaseType(dest.Type()).Kind() != reflect.Struct {
 		err = errors.New("data structure mismatched")
 		return
 	}
-	for i := 0; i < dest.NumField(); i++ {
-		if dest.Type().Field(i).Anonymous {
-			err = UnmarshalMap(src, dest.Field(i), tags...)
+
+	v := reflect.New(BaseType(dest.Type())).Elem()
+
+	vType := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		fieldStruct := vType.Field(i)
+
+		if fieldStruct.Anonymous {
+			err = UnmarshalMap(src, v.Field(i), tags...)
 			if err != nil {
 				return
 			}
 			continue
 		}
 
-		content := GetTag(dest.Type().Field(i), tags...)
-		if content == "" {
-			continue
-		}
-
+		content := GetTag(fieldStruct, tags...)
 		arr := strings.Split(content, ",")
-		val, ok := src[arr[0]]
-
-		if !ok {
-			if !IsOptional(arr[1:]) {
-				err = fmt.Errorf("field [%s] is required", arr[0])
-				return
-			}
-			continue
-		}
-
-		switch x := val.(type) {
-		case map[string]any:
-			if dest.Field(i).Kind() == reflect.Ptr {
-				v := reflect.New(BaseType(dest.Field(i).Type()))
-				err = UnmarshalMap(x, v.Elem(), tags...)
-				if err != nil {
+		if item, ok := src[arr[0]]; ok {
+			switch x := item.(type) {
+			case []any:
+				err = UnmarshalSlice(x, v.Field(i), tags...)
+			case map[string]any:
+				err = UnmarshalMap(x, v.Field(i), tags...)
+			case float64:
+				if BaseType(v.Field(i).Type()).Kind() == reflect.Float64 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Float32 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Uint ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Uint16 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Uint8 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Uint32 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Uint64 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Int ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Int64 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Int32 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Int16 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Int8 ||
+					BaseType(v.Field(i).Type()).Kind() == reflect.Interface {
+					SetValue(x, v.Field(i))
+				} else {
+					err = errors.New("data structure mismatched")
 					return
 				}
-				dest.Field(i).Set(convertTypeOfPtr(dest.Field(i).Type(), v.Elem()))
-			} else {
-				err = UnmarshalMap(x, dest.Field(i), tags...)
-				if err != nil {
-					return
-				}
+			default:
+				SetValue(x, v.Field(i))
 			}
-		case []any:
-			var res reflect.Value
-			err = UnmarshalSlice(x, dest.Field(i), tags...)
 			if err != nil {
 				return
 			}
-			dest.Field(i).Set(res)
-		case float64:
-			var v reflect.Value
-			v, err = ConvertFloatTo(reflect.ValueOf(x), BaseType(dest.Field(i).Type()).Kind())
-			if err != nil {
-				return
-			}
-			dest.Field(i).Set(convertTypeOfPtr(dest.Field(i).Type(), v))
-		default:
-			valValue := reflect.ValueOf(val)
-			if valValue.IsZero() {
-				if !IsOptional(arr[1:]) {
-					err = fmt.Errorf("field [%s] is required", arr[0])
-					return
-				}
-				continue
-			}
-
-			dest.Field(i).Set(convertTypeOfPtr(dest.Field(i).Type(), valValue))
 		}
 	}
+
+	SetValue(v.Interface(), dest)
 
 	return
 }
