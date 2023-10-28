@@ -78,9 +78,9 @@ func TestSlice(t *testing.T) {
 	a := []any{1}
 	var b []int
 
-	res, err := UnmarshalSlice(a, reflect.ValueOf(b))
+	err := UnmarshalSlice(a, reflect.ValueOf(b))
 	require.Nil(t, err)
-	require.Equal(t, []int{1}, res.Interface())
+	require.Equal(t, []int{1}, b)
 }
 
 func TestSliceStruct(t *testing.T) {
@@ -94,11 +94,11 @@ func TestSliceStruct(t *testing.T) {
 	}
 	b := make([]s, 0, len(a))
 
-	res, err := UnmarshalSlice(a, reflect.ValueOf(b), "json")
+	err := UnmarshalSlice(a, reflect.ValueOf(b), "json")
 	require.Nil(t, err)
 	require.Equal(t, []s{
 		{A: 1},
-	}, res.Interface())
+	}, b)
 }
 
 func TestSliceStructPtr(t *testing.T) {
@@ -112,9 +112,9 @@ func TestSliceStructPtr(t *testing.T) {
 	}
 	b := make([]*s, 0, len(a))
 
-	res, err := UnmarshalSlice(a, reflect.ValueOf(b), "json")
+	err := UnmarshalSlice(a, reflect.ValueOf(b), "json")
 	require.Nil(t, err)
 	require.Equal(t, []*s{
 		{A: 1},
-	}, res.Interface())
+	}, b)
 }

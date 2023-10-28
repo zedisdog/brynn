@@ -15,35 +15,70 @@ func BaseType(v reflect.Type) (t reflect.Type) {
 	return v
 }
 
-// UnmarshalSlice 解析[]any到其他变量中
-func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (result reflect.Value, err error) {
-	if dest.Kind() != reflect.Slice {
+func Unmarshal(src any, dest reflect.Value, tags ...string) (err error) {
+	switch x := src.(type) {
+	case map[string]any:
+		return UnmarshalMap(x, dest, tags...)
+	case []any:
+		return UnmarshalSlice(x, dest, tags...)
+	default:
+		panic(errors.New("unsupported"))
+	}
+}
+
+func SetValue(src any, dest reflect.Value) {
+	if dest.Kind() != reflect.Ptr {
+		if dest.CanAddr() {
+			dest = dest.Addr()
+		} else {
+			panic(errors.New("value must be pointer or canAddr"))
+		}
+	}
+
+	srcValue := reflect.ValueOf(src)
+	if srcValue.Kind() == reflect.Ptr {
+		srcValue = srcValue.Elem()
+	}
+
+	tp := dest.Elem().Type()
+	v := srcValue
+	for tp.Kind() == reflect.Ptr {
+		n := reflect.New(v.Type())
+		n.Elem().Set(v)
+		v = n
+		tp = tp.Elem()
+	}
+
+	dest.Elem().Set(v)
+}
+
+func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (err error) {
+	if BaseKind(dest) != reflect.Slice {
 		err = errors.New("data structure mismatched")
 		return
 	}
 
-	elementType := dest.Type().Elem()
-	result = reflect.MakeSlice(dest.Type(), 0, len(src))
+	s := reflect.MakeSlice(BaseTypeByValue(dest), 0, len(src))
 	for _, item := range src {
+		v := reflect.New(BaseTypeByValue(dest))
 		switch x := item.(type) {
+		case []any:
+			err = UnmarshalSlice(x, v, tags...)
+			if err != nil {
+				return
+			}
 		case map[string]any:
-			v := reflect.New(BaseType(elementType))
-			err = UnmarshalMap(x, v.Elem(), tags...)
+			err = UnmarshalMap(x, v, tags...)
 			if err != nil {
 				return
 			}
-			result = reflect.Append(result, convertTypeOfPtr(dest.Type().Elem(), v.Elem()))
-		case float64:
-			var v reflect.Value
-			v, err = ConvertFloatTo(reflect.ValueOf(x), elementType.Kind())
-			if err != nil {
-				return
-			}
-			result = reflect.Append(result, convertTypeOfPtr(dest.Type().Elem(), v))
 		default:
-			result = reflect.Append(result, convertTypeOfPtr(dest.Type().Elem(), reflect.ValueOf(item)))
+			SetValue(x, v)
 		}
+		s = reflect.Append(s, v)
 	}
+
+	SetValue(s.Interface().([]any), dest)
 
 	return
 }
@@ -96,7 +131,7 @@ func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 			}
 		case []any:
 			var res reflect.Value
-			res, err = UnmarshalSlice(x, dest.Field(i), tags...)
+			err = UnmarshalSlice(x, dest.Field(i), tags...)
 			if err != nil {
 				return
 			}
@@ -151,4 +186,20 @@ func IsOptional(arr []string) bool {
 	}
 
 	return false
+}
+
+func BaseKind(v reflect.Value) reflect.Kind {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	return v.Kind()
+}
+
+func BaseTypeByValue(v reflect.Value) reflect.Type {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	return v.Type()
 }

@@ -1,163 +1,141 @@
 package errx
 
 import (
+	"errors"
 	"fmt"
-	"runtime"
-	"strings"
-
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"runtime"
 )
 
-func wrap(err error, code Code, message string, skip int) error {
-	e := NewWithPos(code, message, skip+1)
-	tmp := e.(*Error)
-	tmp.err = err
-	if oriErr, ok := err.(*Error); ok && oriErr.Details["stack"] != "" {
-		tmp.Details["stack"] = fmt.Sprintf(
-			"%s%s",
-			tmp.Details["stack"],
-			oriErr.Details["stack"],
-		)
-	} else {
-		tmp.Details["stack"] = fmt.Sprintf(
-			"%s%s",
-			tmp.Details["stack"],
-			strings.Trim(err.Error(), "\n")+"\n",
-		)
-	}
-	return e
+func New(msg string) error {
+	return NewWithSkip(msg, 1)
 }
 
-func Wrap(err error, code Code, message string) error {
-	return wrap(err, code, message, 1)
-}
-
-func WrapCode(err error, code Code) error {
-	return wrap(err, code, code.Message(), 1)
-}
-
-func WrapMsg(err error, message string) error {
-	return wrap(err, InternalError, message, 1)
+func Wrap(err error, msg string) error {
+	return WrapWithSkip(err, msg, 1)
 }
 
 // NewFromStatus new an error from status.Status
 func NewFromStatus(s *status.Status) error {
-	e := NewWithPos(Code(s.Code()), s.Message(), 1)
-	if d := s.Details(); len(d) > 0 {
-		if details, ok := d[0].(*Map); ok {
-			var err error
-			e.(*Error).Details, err = PbMap2MapStrAny(details)
-			if err != nil {
-				panic(WrapMsg(err, "convert grpc status failed"))
+	e := NewWithSkip(s.Message(), 1)
+	tmp := e.(Errorx)
+	if statusDetails := s.Details(); len(statusDetails) > 0 {
+		if details, ok := statusDetails[0].(*Map); ok {
+			d := PbMap2MapStrAny(details)
+			for key, value := range d {
+				tmp[key] = value
 			}
 		}
 	}
-	return e
+	return tmp
 }
 
-// New e error
-func New(code Code, message string) error {
-	return NewWithPos(code, message, 1)
-}
+func NewWithSkip(msg string, skip int) error {
+	e := make(map[string]any, 10)
+	e[Msg] = msg
 
-// NewCode new an error with given code.
-// if code has been predefined, it'll find error message auto.
-// if not, it'll use the zero value of string.
-func NewCode(errCode Code) error {
-	return NewWithPos(errCode, errCode.Message(), 1)
-}
-
-// NewMsg new an error with given error message.
-// it'll fill field Code with UNKNOWN_ERROR.
-func NewMsg(errMsg string) error {
-	return NewWithPos(InternalError, errMsg, 1)
-}
-
-// NewWithPos new an error with caller info(file and line).
-func NewWithPos(code Code, message string, skip int) error {
-	e := &Error{
-		Code:    code,
-		Msg:     message,
-		Details: make(map[string]any),
-	}
 	_, file, line, _ := runtime.Caller(1 + skip)
-	e.Details["file"] = file
-	e.Details["line"] = line
-	e.Details["stack"] = fmt.Sprintf(
+	e[File] = file
+	e[Line] = line
+
+	e[ErrStack] = fmt.Sprintf(
 		"%s:%d:%s\n",
 		file,
 		line,
-		message,
+		msg,
 	)
 
-	return e
+	return Errorx(e)
 }
 
-type ErrorDetails map[string]any
+func WrapWithSkip(err error, message string, skip int) error {
+	e := NewWithSkip(message, skip+1)
+	tmp := e.(Errorx)
+	tmp[Err] = err
 
-type Error struct {
-	Code    Code
-	Msg     string
-	Details ErrorDetails
-	err     error
-}
-
-func (e *Error) WithDetails(details ErrorDetails) error {
-	ori := e.Details
-	e.Details = details
-	e.Details["file"] = ori["file"]
-	e.Details["line"] = ori["line"]
-	e.Details["stack"] = ori["stack"]
-	return e
-}
-
-func (e Error) Error() string {
-	return e.Msg
-}
-
-func (e Error) Unwrap() error {
-	return e.err
-}
-
-func (e Error) GRPCStatus() *status.Status {
-	s := status.New(codes.Code(e.Code), e.Error())
-
-	if len(e.Details) > 0 {
-		var (
-			err error
+	switch x := err.(type) {
+	case *Errorx:
+		tmp[ErrStack] = fmt.Sprintf(
+			"%s:%d:%s\n%s",
+			tmp[File],
+			tmp[Line],
+			tmp[Msg],
+			x.ErrStack(),
 		)
-		if err != nil { //如果构建status报错，就直接使用报错信息构建status
-			return WrapMsg(err, "build status failed").(*Error).GRPCStatus()
-		}
-		m := &Map{}
-		m.Fields, err = Map2Pb(e.Details)
-		if err != nil { //如果构建status报错，就直接使用报错信息构建status
-			return WrapMsg(err, "build status failed").(*Error).GRPCStatus()
-		}
-		s, err = s.WithDetails(m)
-		if err != nil { //如果构建status报错，就直接使用报错信息构建status
-			return WrapMsg(err, "build status failed").(*Error).GRPCStatus()
+	case Errorx:
+		tmp[ErrStack] = fmt.Sprintf(
+			"%s:%d:%s\n%s",
+			tmp[File],
+			tmp[Line],
+			tmp[Msg],
+			x.ErrStack(),
+		)
+	default:
+		tmp[ErrStack] = fmt.Sprintf(
+			"%s:%d:%s\n%s",
+			tmp[File],
+			tmp[Line],
+			tmp[Msg],
+			x.(error).Error(),
+		)
+	}
+
+	return tmp
+}
+
+type Errorx map[string]any
+
+func (e Errorx) Error() string {
+	msg := e[Msg].(string)
+	if sub, ok := e[Err]; ok {
+		switch x := sub.(type) {
+		case *Errorx:
+			msg += ":" + (*x)[Msg].(string)
+		case Errorx:
+			msg += ":" + x[Msg].(string)
+		default:
+			msg += ":" + sub.(error).Error()
 		}
 	}
 
-	return s
+	return msg
 }
 
-// Format 实现Format接口来在打印error时展示更详细的信息,记录了调用栈
-func (e Error) Format(s fmt.State, c rune) {
+func (e Errorx) ErrStack() string {
+	return e[ErrStack].(string)
+}
+
+type Fields map[string]any
+
+func (e Errorx) Set(fields Fields) {
+	for key, value := range fields {
+		for _, item := range reserveKeys {
+			if key == item {
+				panic(errors.New("reserveKey used"))
+			}
+		}
+		e[key] = value
+	}
+}
+
+func (e Errorx) Get(field string) (value any, ok bool) {
+	value, ok = e[field]
+	return
+}
+
+func (e Errorx) Format(s fmt.State, c rune) {
 	switch c {
 	case 'v':
 		switch {
 		case s.Flag('+'):
-			_, _ = s.Write([]byte(fmt.Sprintf("%s:%d:%s\n", e.Details["file"], e.Details["line"], e.Msg)))
+			_, _ = s.Write([]byte(fmt.Sprintf("%s:%d:%s\n", e[File], e[Line], e[Msg])))
 		case s.Flag('#'):
-			_, _ = s.Write([]byte(e.Details["stack"].(string)))
+			_, _ = s.Write([]byte(e[ErrStack].(string)))
 		default:
-			if e.err != nil {
-				_, _ = s.Write([]byte(fmt.Sprintf("%s]<=[%v", e.Msg, e.err)))
+			if e[Err] != nil {
+				_, _ = s.Write([]byte(fmt.Sprintf("%s]<=[%v\n", e[Msg], e[Err])))
 			} else {
-				_, _ = s.Write([]byte(e.Msg))
+				_, _ = s.Write([]byte(e[Msg].(string) + "\n"))
 			}
 		}
 	}

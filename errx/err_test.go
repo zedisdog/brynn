@@ -1,4 +1,4 @@
-package error
+package errx
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestXxx(t *testing.T) {
-	err := NewWithSkip("123", 0)
+	err := New("123")
 	err2 := WrapWithSkip(err, "321", 0)
 	fmt.Printf("%#v", err2)
 }

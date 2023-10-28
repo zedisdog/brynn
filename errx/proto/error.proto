@@ -4,7 +4,7 @@ syntax = "proto3";
 
 package common.error;
 
-option go_package = "git.zhiwei.zocenet.com/business/common/pb;pb";
+option go_package = "error";
 
 message Map {
   map<string, Value> Fields = 1;

@@ -3,7 +3,6 @@ package httpx
 import (
 	"bytes"
 	"github.com/stretchr/testify/require"
-	"github.com/zedisdog/brynn/errx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"
 	"net/http/httptest"
@@ -47,7 +46,7 @@ func TestParseHeader(t *testing.T) {
 	var tst2 testStruct2
 	err = ctx.parseHeader(reflect.ValueOf(&tst2).Elem())
 	require.NotNil(t, err)
-	require.Equal(t, errx.ValidateError, err.(*errx.Error).Code)
+	require.Equal(t, codeerr.ValidateError, err.(*codeerr.Error).Code)
 }
 
 func TestParseCookies(t *testing.T) {
@@ -79,7 +78,7 @@ func TestParseCookies(t *testing.T) {
 	var tst2 testStruct2
 	err = ctx.parseCookies(reflect.ValueOf(&tst2).Elem())
 	require.NotNil(t, err)
-	require.Equal(t, errx.ValidateError, err.(*errx.Error).Code)
+	require.Equal(t, codeerr.ValidateError, err.(*codeerr.Error).Code)
 }
 
 func TestParseForm(t *testing.T) {
@@ -111,7 +110,7 @@ func TestParseForm(t *testing.T) {
 	var tst2 testStruct2
 	err = ctx.parseForm(reflect.ValueOf(&tst2).Elem())
 	require.NotNil(t, err)
-	require.Equal(t, errx.ValidateError, err.(*errx.Error).Code)
+	require.Equal(t, codeerr.ValidateError, err.(*codeerr.Error).Code)
 }
 
 //go:generate go test -bench=Benchmark.+Parse

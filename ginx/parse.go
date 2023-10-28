@@ -5,7 +5,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
-	"github.com/zedisdog/brynn/errx"
+	"github.com/zedisdog/brynn/code"
+	"github.com/zedisdog/brynn/codeerr"
 	"github.com/zedisdog/brynn/i18n"
 	"github.com/zedisdog/brynn/util/reflectx"
 	"reflect"
@@ -29,7 +30,7 @@ func Parse(ctx *gin.Context, container any) (err error) {
 	case ContentTypeMultiPartForm:
 		err = ctx.ShouldBindWith(container, binding.FormMultipart)
 	default:
-		err = errx.New(errx.BadRequest, i18n.Trans("unsupported Content-Type"))
+		err = codeerr.New(code.BadRequest, i18n.Trans("unsupported Content-Type"))
 	}
 	if err != nil {
 		return

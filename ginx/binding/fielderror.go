@@ -1,4 +1,4 @@
-package ginx
+package binding
 
 import (
 	ut "github.com/go-playground/universal-translator"
@@ -72,7 +72,7 @@ func (fe *SimpleFieldError) Type() reflect.Type {
 
 // Error returns the fieldError's error message
 func (fe *SimpleFieldError) Error() string {
-	//return fmt.Sprintf("Key: '%s' Error:Field validation for '%s' failed on the '%s' tag", fe.ns, fe.Field(), fe.tag)
+	//return fmt.Sprintf("Key: '%s' Errorx:Field validation for '%s' failed on the '%s' tag", fe.ns, fe.Field(), fe.tag)
 	return fe.msg
 }
 

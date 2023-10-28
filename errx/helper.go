@@ -1,74 +1,79 @@
 package errx
 
 import (
+	"errors"
+	"fmt"
+	"google.golang.org/grpc/status"
 	"reflect"
 	"strconv"
-
-	"github.com/zedisdog/brynn/i18n"
 )
 
-func PbMap2MapStrAny(pbMap *Map) (m map[string]any, err error) {
+// PrintGrpcStatusErrorDetail 打印err的详细信息
+func PrintGrpcStatusErrorDetail(err error) {
+	s, ok := status.FromError(err)
+	if !ok {
+		println("none status error")
+		return
+	}
+
+	fmt.Printf("%#v\n", NewFromStatus(s))
+}
+
+func PbMap2MapStrAny(pbMap *Map) (m map[string]any) {
 	m = make(map[string]any, len(pbMap.Fields))
 	for key, item := range pbMap.Fields {
-		m[key], err = PbValue2Any(item)
-		if err != nil {
-			return
-		}
+		m[key] = PbValue2Any(item)
 	}
 
 	return
 }
 
-func PbValue2Any(pbValue *Value) (v any, err error) {
+func PbValue2Any(pbValue *Value) (v any) {
 	switch x := pbValue.Kind.(type) {
 	case *Value_Int32Val:
 		v = x.Int32Val
 	case *Value_Int64Val:
 		v = x.Int64Val
 	case *Value_MapVal:
-		v, err = PbMap2MapStrAny(x.MapVal)
+		v = PbMap2MapStrAny(x.MapVal)
 	case *Value_ListVal:
-		v, err = PbList2SliceAny(x.ListVal)
+		v = PbList2SliceAny(x.ListVal)
 	case *Value_StrVal:
 		v = x.StrVal
+	default:
+		panic("unsupported kind")
 	}
 	return
 }
 
-func PbList2SliceAny(pbList *List) (s []any, err error) {
+func PbList2SliceAny(pbList *List) (s []any) {
 	s = make([]any, len(pbList.List))
 	for _, item := range pbList.List {
 		var res any
-		res, err = PbValue2Any(item)
-		if err != nil {
-			return
-		}
+		res = PbValue2Any(item)
 		s = append(s, res)
 	}
 
 	return
 }
 
-func Map2Pb(val any) (m map[string]*Value, err error) {
+func Map2Pb(val any) (m map[string]*Value) {
 	v := reflect.ValueOf(val)
 	m = make(map[string]*Value, v.Len())
 	iter := v.MapRange()
 	for iter.Next() {
 		key := iter.Key()
 		if key.Kind() != reflect.String {
-			err = New(InternalError, i18n.Trans("map key can only be string"))
+			panic(errors.New("map key can only be string"))
 			return
 		}
-		m[key.String()], err = Any2PbValue(iter.Value().Interface())
-		if err != nil {
-			return
-		}
+		m[key.String()] = Any2PbValue(iter.Value().Interface())
 	}
 
 	return
 }
 
-func Any2PbValue(val any) (value *Value, err error) {
+func Any2PbValue(val any) (value *Value) {
 	value = &Value{}
 	switch x := val.(type) {
 	case int32:
@@ -99,10 +104,7 @@ func Any2PbValue(val any) (value *Value, err error) {
 		switch v.Kind() {
 		case reflect.Map:
 			var m map[string]*Value
-			m, err = Map2Pb(v.Interface())
-			if err != nil {
-				return
-			}
+			m = Map2Pb(v.Interface())
 			value.Kind = &Value_MapVal{
 				MapVal: &Map{
 					Fields: m,
@@ -117,10 +119,7 @@ func Any2PbValue(val any) (value *Value, err error) {
 			for i := 0; i < v.Len(); i++ {
 				item := v.Index(i)
 				var pbValue *Value
-				pbValue, err = Any2PbValue(item.Interface())
-				if err != nil {
-					return
-				}
+				pbValue = Any2PbValue(item.Interface())
 				s.ListVal.List = append(s.ListVal.List, pbValue)
 			}
 			value.Kind = s

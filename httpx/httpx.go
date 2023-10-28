@@ -3,7 +3,8 @@ package httpx
 import (
 	"encoding/json"
 	"errors"
-	"github.com/zedisdog/brynn/errx"
+	"github.com/zedisdog/brynn/code"
+	"github.com/zedisdog/brynn/codeerr"
 	"github.com/zedisdog/brynn/i18n"
 	"github.com/zedisdog/brynn/util/reflectx"
 	"io"
@@ -23,7 +24,7 @@ type Context struct {
 func (c *Context) Parse(v any) (err error) {
 	destValue := reflect.ValueOf(v)
 	if destValue.Kind() != reflect.Ptr {
-		err = errx.New(errx.InternalError, "pointer required")
+		err = codeerr.New(code.InternalError, "pointer required")
 		return
 	}
 	destValue = destValue.Elem()
@@ -68,7 +69,7 @@ func (c *Context) parseHeader(destValue reflect.Value) (err error) {
 			switch len(values) {
 			case 0:
 				if !reflectx.IsOptional(arr[1:]) {
-					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+					err = codeerr.New(code.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
 				}
 			case 1:
 				var v reflect.Value
@@ -121,7 +122,7 @@ func (c *Context) parseCookies(destValue reflect.Value) (err error) {
 					return
 				} else {
 					if !reflectx.IsOptional(arr[1:]) {
-						err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+						err = codeerr.New(code.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
 						return
 					}
 					err = nil
@@ -163,7 +164,7 @@ func (c *Context) parseForm(destValue reflect.Value) (err error) {
 			values, ok := c.r.Form[arr[0]]
 			if !ok || len(values) == 0 {
 				if !reflectx.IsOptional(arr[1:]) {
-					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+					err = codeerr.New(code.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
 					return
 				}
 				continue
@@ -223,7 +224,7 @@ func (c *Context) parseMultiPartForm(destValue reflect.Value) (err error) {
 			values, ok := c.r.MultipartForm.File[arr[0]]
 			if !ok || len(values) == 0 {
 				if !reflectx.IsOptional(arr[1:]) {
-					err = errx.New(errx.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
+					err = codeerr.New(code.ValidateError, i18n.Transf("field [:field] is required", i18n.P{"field": arr[0]}))
 					return
 				}
 				continue

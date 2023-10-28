@@ -290,7 +290,7 @@ func ConvertFloatTo(src reflect.Value, kind reflect.Kind) (result reflect.Value,
 	case reflect.Bool:
 		result = reflect.ValueOf(r != 0)
 	case reflect.String:
-		result = reflect.ValueOf(strconv.FormatFloat(r, 'g', -1, 10))
+		result = reflect.ValueOf(strconv.FormatFloat(r, 'g', -1, 64))
 	default:
 		err = errors.New("unsupported type")
 	}

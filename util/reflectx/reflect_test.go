@@ -41,3 +41,20 @@ func TestConvertMapStrAny2MapStrType(t *testing.T) {
 	require.Equal(t, "1", result.Interface().(map[string]string)["a"])
 	require.Equal(t, "1", result.Interface().(map[string]string)["b"])
 }
+
+func TestSet(t *testing.T) {
+	a := 1
+	var b ***int
+	SetValue(a, reflect.ValueOf(&b))
+	require.Equal(t, a, ***b)
+
+	c := []string{"1"}
+	var d *[]string
+	SetValue(c, reflect.ValueOf(&d))
+	require.Equal(t, c, *d)
+
+	e := map[string]string{"1": "2"}
+	var f *map[string]string
+	SetValue(e, reflect.ValueOf(&f))
+	require.Equal(t, e, *f)
+}
