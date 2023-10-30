@@ -25,7 +25,7 @@ func Unmarshal(src any, dest reflect.Value, tags ...string) (err error) {
 	}
 }
 
-func SetValue(src any, dest reflect.Value) {
+func SetValue(src any, dest reflect.Value) (err error) {
 	if dest.Kind() != reflect.Ptr || dest.IsNil() {
 		if dest.CanAddr() {
 			dest = dest.Addr()
@@ -35,6 +35,22 @@ func SetValue(src any, dest reflect.Value) {
 	}
 
 	srcValue := reflect.ValueOf(src)
+
+	if BaseType(srcValue.Type()) != BaseType(dest.Type()) && (BaseType(dest.Type()).Kind() == reflect.Float64 ||
+		BaseType(dest.Type()).Kind() == reflect.Float32 ||
+		BaseType(dest.Type()).Kind() == reflect.Uint ||
+		BaseType(dest.Type()).Kind() == reflect.Uint16 ||
+		BaseType(dest.Type()).Kind() == reflect.Uint8 ||
+		BaseType(dest.Type()).Kind() == reflect.Uint32 ||
+		BaseType(dest.Type()).Kind() == reflect.Uint64 ||
+		BaseType(dest.Type()).Kind() == reflect.Int ||
+		BaseType(dest.Type()).Kind() == reflect.Int64 ||
+		BaseType(dest.Type()).Kind() == reflect.Int32 ||
+		BaseType(dest.Type()).Kind() == reflect.Int16 ||
+		BaseType(dest.Type()).Kind() == reflect.Int8) {
+		return errors.New("missmatch")
+	}
+
 	if srcValue.Kind() == reflect.Ptr {
 		srcValue = srcValue.Elem()
 	}
@@ -52,16 +68,17 @@ func SetValue(src any, dest reflect.Value) {
 		if BaseType(dest.Type()).Kind() == reflect.Interface {
 			dest.Elem().Set(v)
 		} else {
-			var err error
 			v, err = ConvertFloatTo(v, BaseType(dest.Type()).Kind())
 			if err != nil {
 				panic(err)
 			}
-			SetValue(v.Interface(), dest)
+			err = SetValue(v.Interface(), dest)
 		}
 	} else {
 		dest.Elem().Set(v)
 	}
+
+	return
 }
 
 func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (err error) {
@@ -76,14 +93,8 @@ func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (err error) {
 		switch x := item.(type) {
 		case []any:
 			err = UnmarshalSlice(x, v, tags...)
-			if err != nil {
-				return
-			}
 		case map[string]any:
 			err = UnmarshalMap(x, v, tags...)
-			if err != nil {
-				return
-			}
 		case float64:
 			if BaseType(v.Type()).Kind() == reflect.Float64 ||
 				BaseType(v.Type()).Kind() == reflect.Float32 ||
@@ -97,23 +108,84 @@ func UnmarshalSlice(src []any, dest reflect.Value, tags ...string) (err error) {
 				BaseType(v.Type()).Kind() == reflect.Int32 ||
 				BaseType(v.Type()).Kind() == reflect.Int16 ||
 				BaseType(v.Type()).Kind() == reflect.Int8 {
-				SetValue(x, v)
+				err = SetValue(x, v)
 			} else {
 				err = errors.New("data structure mismatched")
-				return
 			}
 		default:
-			SetValue(x, v)
+			err = SetValue(x, v)
+		}
+		if err != nil {
+			return
 		}
 		s = reflect.Append(s, v.Elem())
 	}
 
-	SetValue(s.Interface(), dest)
+	err = SetValue(s.Interface(), dest)
+
+	return
+}
+
+func toMap(src map[string]any, dest reflect.Value, tags ...string) (err error) {
+	if BaseType(dest.Type()).Kind() != reflect.Map {
+		err = errors.New("data structure mismatched")
+		return
+	}
+
+	s := reflect.MakeMap(BaseTypeByValue(dest))
+
+	for key, item := range src {
+		v := reflect.New(BaseTypeByValue(dest).Elem())
+		switch x := item.(type) {
+		case []any:
+			err = UnmarshalSlice(x, v, tags...)
+		case map[string]any:
+			err = UnmarshalMap(x, v, tags...)
+		case float64:
+			if BaseType(v.Type()).Kind() == reflect.Float64 ||
+				BaseType(v.Type()).Kind() == reflect.Float32 ||
+				BaseType(v.Type()).Kind() == reflect.Uint ||
+				BaseType(v.Type()).Kind() == reflect.Uint16 ||
+				BaseType(v.Type()).Kind() == reflect.Uint8 ||
+				BaseType(v.Type()).Kind() == reflect.Uint32 ||
+				BaseType(v.Type()).Kind() == reflect.Uint64 ||
+				BaseType(v.Type()).Kind() == reflect.Int ||
+				BaseType(v.Type()).Kind() == reflect.Int64 ||
+				BaseType(v.Type()).Kind() == reflect.Int32 ||
+				BaseType(v.Type()).Kind() == reflect.Int16 ||
+				BaseType(v.Type()).Kind() == reflect.Int8 {
+				err = SetValue(x, v)
+			} else {
+				err = errors.New("data structure mismatched")
+			}
+		default:
+			err = SetValue(x, v)
+		}
+		if err != nil {
+			return
+		}
+		s.SetMapIndex(reflect.ValueOf(key), v.Elem())
+	}
+
+	err = SetValue(s.Interface(), dest)
 
 	return
 }
 
 func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err error) {
+	switch BaseType(dest.Type()).Kind() {
+	case reflect.Struct:
+		err = toStruct(src, dest, tags...)
+	case reflect.Map:
+		err = toMap(src, dest, tags...)
+	default:
+		err = errors.New("data structure mismatched")
+	}
+
+	return
+}
+
+func toStruct(src map[string]any, dest reflect.Value, tags ...string) (err error) {
 	if BaseType(dest.Type()).Kind() != reflect.Struct {
 		err = errors.New("data structure mismatched")
 		return
@@ -156,13 +228,12 @@ func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 					BaseType(v.Field(i).Type()).Kind() == reflect.Int16 ||
 					BaseType(v.Field(i).Type()).Kind() == reflect.Int8 ||
 					BaseType(v.Field(i).Type()).Kind() == reflect.Interface {
-					SetValue(x, v.Field(i))
+					err = SetValue(x, v.Field(i))
 				} else {
 					err = errors.New("data structure mismatched")
-					return
 				}
 			default:
-				SetValue(x, v.Field(i))
+				err = SetValue(x, v.Field(i))
 			}
 			if err != nil {
 				return
@@ -170,27 +241,9 @@ func UnmarshalMap(src map[string]any, dest reflect.Value, tags ...string) (err e
 		}
 	}
 
-	SetValue(v.Interface(), dest)
+	err = SetValue(v.Interface(), dest)
 
 	return
-}
-
-// convertTypeOfPtr 自动处理指针的赋值, 从gozero抄来的
-func convertTypeOfPtr(tp reflect.Type, target reflect.Value) reflect.Value {
-	// keep the original value is a pointer
-	if tp.Kind() == reflect.Ptr && target.CanAddr() {
-		tp = tp.Elem()
-		target = target.Addr()
-	}
-
-	for tp.Kind() == reflect.Ptr {
-		p := reflect.New(target.Type())
-		p.Elem().Set(target)
-		target = p
-		tp = tp.Elem()
-	}
-
-	return target
 }
 
 func IsOptional(arr []string) bool {
