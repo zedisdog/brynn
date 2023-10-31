@@ -7,7 +7,7 @@ import (
 )
 
 func ConvertTo[T any](src reflect.Value) (result T, err error) {
-	r, err := ConvertToType(src, reflect.ValueOf(result).Kind())
+	r, err := ConvertToKind(src, reflect.ValueOf(result).Kind())
 	if err != nil {
 		return
 	}
@@ -86,7 +86,7 @@ func ConvertMapStrAny2MapStrType(src reflect.Value, t reflect.Type) (result refl
 	it := src.MapRange()
 	for it.Next() {
 		var v reflect.Value
-		v, err = ConvertToType(it.Value(), t.Kind())
+		v, err = ConvertToKind(it.Value(), t.Kind())
 		if err != nil {
 			return
 		}
@@ -96,7 +96,7 @@ func ConvertMapStrAny2MapStrType(src reflect.Value, t reflect.Type) (result refl
 	return
 }
 
-func ConvertToType(src reflect.Value, kind reflect.Kind) (result reflect.Value, err error) {
+func ConvertToKind(src reflect.Value, kind reflect.Kind) (result reflect.Value, err error) {
 	var r reflect.Value
 	switch src.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:

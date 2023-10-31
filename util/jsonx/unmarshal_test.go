@@ -1,4 +1,4 @@
-package reflectx
+package jsonx
 
 import (
 	"github.com/stretchr/testify/require"
@@ -26,7 +26,7 @@ func TestMap(t *testing.T) {
 	require.Equal(t, 1, *mStruct.C)
 }
 
-func TestMapStrust(t *testing.T) {
+func TestMapStruct(t *testing.T) {
 	m := map[string]any{
 		"a": float64(1),
 		"b": "1",

@@ -42,19 +42,39 @@ func TestConvertMapStrAny2MapStrType(t *testing.T) {
 	require.Equal(t, "1", result.Interface().(map[string]string)["b"])
 }
 
-func TestSet(t *testing.T) {
-	a := 1
-	var b **int
-	SetValue(a, reflect.ValueOf(&b))
-	require.Equal(t, a, **b)
+func TestSetValue(t *testing.T) {
+	t.Run("test set value with same kind", func(t *testing.T) {
+		t.Parallel()
+		var a, b int
+		a = 1
+		require.Nil(t, SetValue(reflect.ValueOf(a), reflect.ValueOf(&b)))
+		require.Equal(t, a, b)
+	})
 
-	c := []string{"1"}
-	var d *[]string
-	SetValue(c, reflect.ValueOf(&d))
-	require.Equal(t, c, *d)
+	t.Run("test set value with diff kind", func(t *testing.T) {
+		t.Parallel()
+		var a int
+		var b string
+		a = 1
+		require.Nil(t, SetValue(reflect.ValueOf(a), reflect.ValueOf(&b)))
+		require.Equal(t, "1", b)
+	})
 
-	e := map[string]string{"1": "2"}
-	var f *map[string]string
-	SetValue(e, reflect.ValueOf(&f))
-	require.Equal(t, e, *f)
+	t.Run("test set value with pointer", func(t *testing.T) {
+		t.Parallel()
+		a := 1
+		var b **int
+		require.Nil(t, SetValue(reflect.ValueOf(a), reflect.ValueOf(&b)))
+		require.Equal(t, a, **b)
+
+		c := []string{"1"}
+		var d *[]string
+		require.Nil(t, SetValue(reflect.ValueOf(c), reflect.ValueOf(&d)))
+		require.Equal(t, c, *d)
+
+		e := map[string]string{"1": "2"}
+		var f *map[string]string
+		require.Nil(t, SetValue(reflect.ValueOf(e), reflect.ValueOf(&f)))
+		require.Equal(t, e, *f)
+	})
 }

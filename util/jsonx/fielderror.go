@@ -1,4 +1,4 @@
-package binding
+package jsonx
 
 import (
 	ut "github.com/go-playground/universal-translator"
